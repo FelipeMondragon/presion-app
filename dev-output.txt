@@ -1,0 +1,11 @@
+
+> presion-papa@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.12:3000
+✓ Ready in 1162ms
+
+○ Compiling /[lang]/login ...
+ GET /es/login 200 in 6.3s (next.js: 5.6s, proxy.ts: 283ms, application-code: 472ms)
