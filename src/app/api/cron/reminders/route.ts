@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { db } from "@/db"
+import { db } from "@/db/client"
 import { reminderSettings, users } from "@/db/schema"
 import { eq, like } from "drizzle-orm"
 

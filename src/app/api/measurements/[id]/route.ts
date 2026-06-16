@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { db } from "@/db"
+import { db } from "@/db/client"
 import { measurements } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 

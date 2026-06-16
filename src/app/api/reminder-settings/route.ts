@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { db } from "@/db"
+import { db } from "@/db/client"
 import { reminderSettings } from "@/db/schema"
 import { eq } from "drizzle-orm"
 

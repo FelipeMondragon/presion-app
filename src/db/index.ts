@@ -1,16 +1,9 @@
-import { drizzle } from "drizzle-orm/libsql"
-import { createClient } from "@libsql/client"
+export { db } from "./client"
+
 import { migrate } from "drizzle-orm/libsql/migrator"
 import { join } from "path"
-import * as schema from "./schema"
+import { db } from "./client"
 import { seed } from "./seed"
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN,
-})
-
-export const db = drizzle(client, { schema })
 
 migrate(db, {
   migrationsFolder: join(process.cwd(), "drizzle"),
