@@ -55,8 +55,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push(`/${lang}/dashboard`)
-    router.refresh()
+    window.location.href = `/${lang}/dashboard`
   }
 
   return (
