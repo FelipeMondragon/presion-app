@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useDeferredValue, useMemo } from "react"
 import { useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
 import { GlassCard } from "@/components/glass-card"
@@ -36,6 +36,7 @@ export default function HistorialPage() {
   const params = useParams()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
+  const { data: session } = useSession()
 
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,24 +49,20 @@ export default function HistorialPage() {
     let cancelled = false
 
     async function loadData() {
+      if (!session?.user?.id) return
       setLoading(true)
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
 
-      const { data } = await supabase
-        .from("measurements")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("measured_at", { ascending: false })
+      const res = await fetch("/api/measurements")
+      const data = await res.json()
 
-      if (!cancelled && data) setMeasurements(data)
+      if (!cancelled && Array.isArray(data)) setMeasurements(data)
       if (!cancelled) setLoading(false)
     }
 
     loadData()
     return () => { cancelled = true }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   const filteredMeasurements = useMemo(() => {
     const now = new Date()
@@ -94,8 +91,7 @@ export default function HistorialPage() {
   const handleDelete = async (id: string) => {
     if (!confirm(t.historial.eliminarConfirmacion)) return
     setDeleting(id)
-    const supabase = createClient()
-    await supabase.from("measurements").delete().eq("id", id)
+    await fetch(`/api/measurements/${id}`, { method: "DELETE" })
     setMeasurements((prev) => prev.filter((m) => m.id !== id))
     setDeleting(null)
   }

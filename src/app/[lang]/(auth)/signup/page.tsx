@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
 import { getTranslations } from "@/lib/translations"
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/glass-card"
@@ -35,17 +34,15 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/${lang}/login`,
-      },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
     })
 
-    if (authError) {
-      setError(authError.message)
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error || t.auth.errorRegistro)
       setLoading(false)
       return
     }
@@ -55,82 +52,89 @@ export default function SignupPage() {
   }
 
   return (
-    <GlassCard className="p-8" variant="elevated">
-      <div className="mb-6 flex flex-col items-center gap-3 text-center">
-        <HeartLogo size="lg" animated />
-        <div>
-          <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-            {t.auth.hero}
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t.auth.subhero}
-          </p>
+    <div className="flex min-h-[80vh] items-center justify-center px-4">
+      <div className="relative w-full max-w-md pt-16">
+        <div className="absolute -top-4 left-1/2 z-10 -translate-x-1/2">
+          <HeartLogo size="xl" animated />
         </div>
+
+        <GlassCard className="px-8 pb-8 pt-16" variant="elevated">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+              {t.auth.hero}
+            </h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {t.auth.subhero}
+            </p>
+          </div>
+
+          <hr className="mb-6 border-gray-200 dark:border-gray-700" />
+
+          <form onSubmit={handleSignup} className="space-y-5">
+            <FloatingInput
+              id="email"
+              label={t.auth.email}
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder="correo@ejemplo.com"
+              required
+              autoComplete="email"
+            />
+
+            <FloatingInput
+              id="password"
+              label={t.auth.contrasena}
+              type="password"
+              value={password}
+              onChange={setPassword}
+              placeholder="••••••••"
+              required
+              autoComplete="new-password"
+            />
+
+            <FloatingInput
+              id="confirmPassword"
+              label={t.auth.confirmarContrasena}
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="••••••••"
+              required
+              autoComplete="new-password"
+            />
+
+            {error && (
+              <p className="text-sm text-red-500">{error}</p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full rounded-xl bg-gradient-to-r from-red-500 to-rose-600 py-5 text-sm font-medium text-white shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t.comun.cargando}
+                </>
+              ) : (
+                t.auth.registrarse
+              )}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            {t.auth.yaTienesCuenta}{" "}
+            <Link
+              href={`/${lang}/login`}
+              className="font-medium text-red-500 hover:text-red-600"
+            >
+              {t.auth.iniciarSesion}
+            </Link>
+          </p>
+        </GlassCard>
       </div>
-
-      <form onSubmit={handleSignup} className="space-y-4">
-        <FloatingInput
-          id="email"
-          label={t.auth.email}
-          type="email"
-          value={email}
-          onChange={setEmail}
-          placeholder="correo@ejemplo.com"
-          required
-          autoComplete="email"
-        />
-
-        <FloatingInput
-          id="password"
-          label={t.auth.contrasena}
-          type="password"
-          value={password}
-          onChange={setPassword}
-          placeholder="••••••••"
-          required
-          autoComplete="new-password"
-        />
-
-        <FloatingInput
-          id="confirmPassword"
-          label={t.auth.confirmarContrasena}
-          type="password"
-          value={confirmPassword}
-          onChange={setConfirmPassword}
-          placeholder="••••••••"
-          required
-          autoComplete="new-password"
-        />
-
-        {error && (
-          <p className="text-sm text-red-500">{error}</p>
-        )}
-
-        <Button
-          type="submit"
-          className="w-full rounded-xl bg-gradient-to-r from-red-500 to-rose-600 py-5 text-sm font-medium text-white shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700"
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t.comun.cargando}
-            </>
-          ) : (
-            t.auth.registrarse
-          )}
-        </Button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-        {t.auth.yaTienesCuenta}{" "}
-        <Link
-          href={`/${lang}/login`}
-          className="font-medium text-red-500 hover:text-red-600"
-        >
-          {t.auth.iniciarSesion}
-        </Link>
-      </p>
-    </GlassCard>
+    </div>
   )
 }

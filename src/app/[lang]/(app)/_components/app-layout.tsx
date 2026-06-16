@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useParams, usePathname } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { signOut, useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
-import { Button } from "@/components/ui/button"
 import { AnimatedBg } from "@/components/animated-bg"
 import { HeartLogo } from "@/components/heart-logo"
 import { cn } from "@/lib/utils"
@@ -19,6 +18,8 @@ import {
   Menu,
   X,
   Languages,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 
 const navItems = [
@@ -40,11 +41,22 @@ export function AppLayout({
   const params = useParams()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
+  const { data: session } = useSession()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
-  const supabase = createClient()
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await signOut({ redirect: false })
     window.location.href = `/${lang}/login`
   }
 
@@ -61,10 +73,10 @@ export function AppLayout({
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
       <AnimatedBg />
 
-      {/* Mobile overlay */}
+      {/* Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -72,70 +84,103 @@ export function AppLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 glass-subtle border-r border-gray-200/50 dark:border-gray-700/30 transition-transform duration-200 lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white shadow-2xl transition-transform duration-300 dark:bg-gray-900",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-200/50 dark:border-gray-700/30">
-            <HeartLogo size="sm" animated />
-            <div>
-              <h1 className="font-semibold text-gray-900 dark:text-gray-100">
-                {t.app.name}
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t.app.tagline}
-              </p>
-            </div>
-          </div>
+        {/* Close button */}
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="absolute right-3 top-3 rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+        >
+          <X className="h-5 w-5" />
+        </button>
 
-          {/* Nav */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
-            {navItems.map((item) => (
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-6 pb-3 pt-6">
+          <HeartLogo size="md" animated />
+          <div>
+            <p className="font-bold text-gray-900 dark:text-gray-100">
+              {t.app.name}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t.app.tagline}
+            </p>
+          </div>
+        </div>
+
+        <hr className="mx-4 border-gray-100 dark:border-gray-800" />
+
+        {/* Nav */}
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          {navItems.map((item) => {
+            const isActive = currentPath === item.href
+            return (
               <Link
                 key={item.href}
                 href={`/${lang}/${item.href}`}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                  currentPath === item.href
-                    ? "bg-white/70 text-red-600 shadow-sm dark:bg-white/10 dark:text-red-400"
-                    : "text-gray-600 hover:bg-white/40 dark:text-gray-400 dark:hover:bg-white/5"
+                  "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className={cn("h-5 w-5", isActive && "drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]")} />
                 {t.nav[item.key]}
               </Link>
-            ))}
-          </nav>
+            )
+          })}
+        </nav>
 
-          {/* Footer */}
-          <div className="border-t border-gray-200/50 dark:border-gray-700/30 p-3 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"
-              onClick={toggleLang}
+        <hr className="mx-4 border-gray-100 dark:border-gray-800" />
+
+        {/* User info + dropdown menu */}
+        {session?.user && (
+          <div className="relative mx-3 mb-2" ref={userMenuRef}>
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex w-full items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
             >
-              <Languages className="h-5 w-5" />
-              {lang === "es" ? "English" : "Español"}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400 hover:text-red-600"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-5 w-5" />
-              {t.nav.cerrarSesion}
-            </Button>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-rose-500 text-xs font-bold text-white shadow-sm">
+                {(session.user.name || session.user.email || "U").charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {session.user.name || session.user.email}
+                </p>
+                <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {session.user.email}
+                </p>
+              </div>
+              {userMenuOpen ? (
+                <ChevronUp className="h-4 w-4 shrink-0 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+              )}
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-gray-100 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                <button
+                  onClick={handleSignOut}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-400"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t.nav.cerrarSesion}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
       </aside>
 
       {/* Main content */}
       <div className="relative flex flex-1 flex-col min-w-0">
-        {/* Mobile header */}
-        <header className="glass-subtle flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/30 lg:hidden">
+        {/* Top header */}
+        <header className="glass-subtle flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/30">
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 text-gray-600 dark:text-gray-400"
@@ -146,12 +191,22 @@ export function AppLayout({
             <HeartLogo size="sm" />
             <span className="font-semibold text-sm">{t.app.name}</span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-2 text-gray-400"
-          >
-            <X className="h-6 w-6 opacity-0" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleLang}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 hover:text-gray-700"
+              title={lang === "es" ? "English" : "Español"}
+            >
+              <Languages className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+              title={t.nav.cerrarSesion}
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">

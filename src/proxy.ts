@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
+import { getToken } from "next-auth/jwt"
 
 const LOCALES = ["es", "en"]
 const DEFAULT_LOCALE = "es"
@@ -24,69 +24,37 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
   )
 
-  // 1. Redirigir al locale correspondiente ANTES de cualquier otra cosa
   if (!pathnameHasLocale) {
     const locale = getLocale(request)
     request.nextUrl.pathname = `/${locale}${pathname === "/" ? "" : pathname}`
     return NextResponse.redirect(request.nextUrl)
   }
 
-  // Extraer locale del pathname para las redirecciones que siguen
   const locale = pathname.split("/")[1] || DEFAULT_LOCALE
 
-  // 2. Intentar obtener el usuario de Supabase (envuelto en try-catch
-  //    para que la app funcione aunque falten credenciales de Supabase)
-  let user = null
-  let supabaseResponse = NextResponse.next({ request })
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
 
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-    try {
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-        {
-          cookies: {
-            getAll() {
-              return request.cookies.getAll()
-            },
-            setAll(cookiesToSet) {
-              cookiesToSet.forEach(({ name, value }) =>
-                request.cookies.set(name, value)
-              )
-              supabaseResponse = NextResponse.next({ request })
-              cookiesToSet.forEach(({ name, value, options }) =>
-                supabaseResponse.cookies.set(name, value, options)
-              )
-            },
-          },
-        }
-      )
+  const isLoggedIn = !!token
 
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      user = authUser
-    } catch {
-      // Si falla Supabase (sin credenciales, timeout, etc.), seguimos sin usuario
-    }
-  }
-
-  // 3. Proteger rutas de auth de usuarios autenticados
-  if (user && (pathname.endsWith("/login") || pathname.endsWith("/signup"))) {
+  if (isLoggedIn && (pathname.endsWith("/login") || pathname.endsWith("/signup"))) {
     request.nextUrl.pathname = `/${locale}/dashboard`
     return NextResponse.redirect(request.nextUrl)
   }
 
-  // 4. Proteger rutas de la app de usuarios no autenticados
   const isAppRoute = pathname.match(/^\/(es|en)\/(dashboard|registrar|historial|exportar|configuracion)/)
-  if (!user && isAppRoute) {
+  if (!isLoggedIn && isAppRoute) {
     request.nextUrl.pathname = `/${locale}/login`
     return NextResponse.redirect(request.nextUrl)
   }
 
-  return supabaseResponse
+  return NextResponse.next({ request })
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

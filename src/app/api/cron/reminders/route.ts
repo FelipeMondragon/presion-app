@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
+import { db } from "@/db"
+import { reminderSettings, users } from "@/db/schema"
+import { eq, like } from "drizzle-orm"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -10,46 +12,41 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => [],
-        setAll: () => {},
-      },
-    }
-  )
-
   const now = new Date()
   const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
 
-  const { data: settings } = await supabase
-    .from("reminder_settings")
-    .select("*, auth.users!inner(email)")
-    .contains("times", [currentTime])
-    .eq("email_enabled", true)
+  const settings = await db
+    .select({
+      userId: reminderSettings.userId,
+      email: users.email,
+      times: reminderSettings.times,
+    })
+    .from(reminderSettings)
+    .innerJoin(users, eq(reminderSettings.userId, users.id))
+    .where(eq(reminderSettings.emailEnabled, true))
 
-  if (!settings || settings.length === 0) {
+  const matching = settings.filter((s) => {
+    try {
+      const times: string[] = JSON.parse(s.times)
+      return times.includes(currentTime)
+    } catch {
+      return false
+    }
+  })
+
+  if (matching.length === 0) {
     return NextResponse.json({ sent: 0, message: "No reminders for this time" })
   }
 
   const results = []
-  type ReminderSetting = {
-    user_id: string
-    users: { email: string } | null
-  }
-
-  for (const setting of settings as unknown as ReminderSetting[]) {
+  for (const setting of matching) {
     try {
-      const userEmail = setting.users?.email
-      if (!userEmail || !process.env.REMINDER_FROM) continue
+      if (!setting.email || !process.env.REMINDER_FROM) continue
 
       // TODO: Implement email sending via Gmail SMTP
-      // This requires nodemailer or similar
-      results.push({ email: userEmail, status: "pending" })
+      results.push({ email: setting.email, status: "pending" })
     } catch (error) {
-      results.push({ email: (setting as unknown as ReminderSetting).users?.email, error: String(error) })
+      results.push({ email: setting.email, error: String(error) })
     }
   }
 

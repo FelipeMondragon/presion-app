@@ -2,13 +2,13 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
 import { measurementSchema } from "@/lib/validators"
 import { FloatingInput } from "@/components/floating-input"
 import { GlassCard } from "@/components/glass-card"
-import { LabeledSelect } from "@/components/labeled-select"
+import { SegmentedControl } from "@/components/segmented-control"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,6 +20,7 @@ export default function RegistrarPage() {
   const router = useRouter()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
+  const { data: session } = useSession()
 
   const [systolic, setSystolic] = useState("")
   const [diastolic, setDiastolic] = useState("")
@@ -59,30 +60,31 @@ export default function RegistrarPage() {
       return
     }
 
-    setLoading(true)
-    const supabase = createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    if (!session?.user?.id) {
       router.push(`/${lang}/login`)
       return
     }
 
-    const { error } = await supabase.from("measurements").insert({
-      user_id: user.id,
-      systolic: result.data.systolic,
-      diastolic: result.data.diastolic,
-      pulse: result.data.pulse || null,
-      arm: result.data.arm,
-      position: result.data.position,
-      notes: result.data.notes || null,
-      measured_at: new Date().toISOString(),
+    setLoading(true)
+
+    const res = await fetch("/api/measurements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systolic: result.data.systolic,
+        diastolic: result.data.diastolic,
+        pulse: result.data.pulse || null,
+        arm: result.data.arm,
+        position: result.data.position,
+        notes: result.data.notes || null,
+        measured_at: new Date().toISOString(),
+      }),
     })
 
     setLoading(false)
 
-    if (error) {
-      toast.error(error.message || t.registrar.error)
+    if (!res.ok) {
+      toast.error(t.registrar.error)
       return
     }
 
@@ -104,7 +106,7 @@ export default function RegistrarPage() {
       <div className="grid lg:grid-cols-[1fr_380px] gap-6">
         {/* LEFT: Form */}
         <GlassCard className="p-6" variant="elevated">
-          <form id="registrar-form" onSubmit={handleSubmit} className="space-y-4">
+          <form id="registrar-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Presión — grandes */}
             <div className="grid grid-cols-2 gap-4">
               <FloatingInput
@@ -141,19 +143,24 @@ export default function RegistrarPage() {
               </div>
             )}
 
-            {/* Pulso, Brazo, Posición */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <FloatingInput
-                id="pulse"
-                label={t.registrar.pulso}
-                type="number"
-                value={pulse}
-                onChange={setPulse}
-                placeholder={t.registrar.pulsoPlaceholder}
-                error={errors.pulse}
-              />
+            <hr className="border-gray-100 dark:border-gray-800" />
 
-              <LabeledSelect
+            {/* Pulso */}
+            <FloatingInput
+              id="pulse"
+              label={t.registrar.pulso}
+              type="number"
+              value={pulse}
+              onChange={setPulse}
+              placeholder={t.registrar.pulsoPlaceholder}
+              error={errors.pulse}
+            />
+
+            <hr className="border-gray-100 dark:border-gray-800" />
+
+            {/* Brazo, Posición */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SegmentedControl
                 value={arm}
                 onValueChange={setArm}
                 label={t.registrar.brazo}
@@ -163,7 +170,7 @@ export default function RegistrarPage() {
                 ]}
               />
 
-              <LabeledSelect
+              <SegmentedControl
                 value={position}
                 onValueChange={setPosition}
                 label={t.registrar.posicion}
@@ -175,9 +182,11 @@ export default function RegistrarPage() {
               />
             </div>
 
+            <hr className="border-gray-100 dark:border-gray-800" />
+
             {/* Notas */}
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm text-gray-500 dark:text-gray-400">
+              <Label htmlFor="notes" className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 {t.registrar.notas}
               </Label>
               <Textarea
@@ -187,7 +196,7 @@ export default function RegistrarPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
                 maxLength={500}
-                className="glass-subtle border-gray-200 dark:border-gray-600 focus:border-red-400"
+                className="rounded-xl border border-gray-200 bg-white/50 dark:border-gray-600 dark:bg-gray-900/50 focus-visible:border-red-400 focus-visible:ring-2 focus-visible:ring-red-400/20"
               />
             </div>
           </form>

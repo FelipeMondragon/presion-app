@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,6 +30,7 @@ export default function ConfiguracionPage() {
   const params = useParams()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
+  const { data: session } = useSession()
 
   const [userEmail, setUserEmail] = useState("")
   const [timezone, setTimezone] = useState("America/Chihuahua")
@@ -40,42 +41,30 @@ export default function ConfiguracionPage() {
   const [loadingSettings, setLoadingSettings] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
-
     async function loadSettings() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      if (!session?.user?.id) {
         setLoadingSettings(false)
         return
       }
 
-      setUserEmail(user.email || "")
+      setUserEmail(session.user.email || "")
 
-      const { data, error } = await supabase
-        .from("reminder_settings")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle()
-
-      if (error) {
-        console.error("Error cargando recordatorios:", error)
-        setLoadingSettings(false)
-        return
-      }
+      const res = await fetch("/api/reminder-settings")
+      const data = await res.json()
 
       if (data) {
-        const settings = data as ReminderSettings
-        setReminderTimes(settings.times)
-        setBrowserNotifs(settings.browser_enabled)
-        setEmailNotifs(settings.email_enabled)
-        setTimezone(settings.timezone)
+        setReminderTimes(data.times)
+        setBrowserNotifs(data.browser_enabled)
+        setEmailNotifs(data.email_enabled)
+        setTimezone(data.timezone)
       }
 
       setLoadingSettings(false)
     }
 
     loadSettings()
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   const addTime = () => {
     setReminderTimes((prev) => [...prev, "12:00"])
@@ -94,24 +83,23 @@ export default function ConfiguracionPage() {
 
   const handleSaveReminders = async () => {
     setSaving(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!session?.user?.id) return
 
-    const { error } = await supabase.from("reminder_settings").upsert(
-      {
-        user_id: user.id,
+    const res = await fetch("/api/reminder-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         times: reminderTimes,
         email_enabled: emailNotifs,
         browser_enabled: browserNotifs,
         timezone,
-      },
-      { onConflict: "user_id" }
-    )
+      }),
+    })
 
     setSaving(false)
-    if (error) {
-      toast.error(error.message)
+    if (!res.ok) {
+      const data = await res.json()
+      toast.error(data.error || "Error al guardar")
       return
     }
     toast.success(t.configuracion.recordatoriosGuardados)

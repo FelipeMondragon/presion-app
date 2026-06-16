@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { signIn } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/glass-card"
@@ -43,18 +43,14 @@ export default function LoginPage() {
     }
 
     setLoading(true)
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const res = await signIn("credentials", {
       email,
       password,
+      redirect: false,
     })
 
-    if (authError) {
-      setError(
-        authError.message === "Invalid login credentials"
-          ? t.auth.errorCredenciales
-          : authError.message
-      )
+    if (res?.error) {
+      setError(t.auth.errorCredenciales)
       setLoading(false)
       return
     }

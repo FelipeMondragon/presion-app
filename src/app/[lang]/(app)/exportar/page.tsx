@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+
 import { getTranslations } from "@/lib/translations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,29 +14,18 @@ import type { Measurement } from "@/lib/types"
 import { FileDown, Loader2 } from "lucide-react"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
-import "jspdf-autotable"
+import { applyPlugin } from "jspdf-autotable"
+applyPlugin(jsPDF)
 import { formatDate } from "@/lib/utils"
 
 async function fetchData(dateFrom: string, dateTo: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
+  const params = new URLSearchParams()
+  if (dateFrom) params.set("from", dateFrom)
+  if (dateTo) params.set("to", dateTo)
 
-  let query = supabase
-    .from("measurements")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("measured_at", { ascending: true })
-
-  if (dateFrom) query = query.gte("measured_at", new Date(dateFrom).toISOString())
-  if (dateTo) {
-    const end = new Date(dateTo)
-    end.setHours(23, 59, 59, 999)
-    query = query.lte("measured_at", end.toISOString())
-  }
-
-  const { data } = await query
-  return data || []
+  const res = await fetch(`/api/measurements?${params.toString()}`)
+  if (!res.ok) return []
+  return res.json()
 }
 
 export default function ExportarPage() {
