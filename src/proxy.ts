@@ -4,7 +4,7 @@ import { getToken } from "next-auth/jwt"
 const LOCALES = ["es", "en"]
 const DEFAULT_LOCALE = "es"
 
-const SESSION_COOKIE = "__Secure-next-auth.session-token"
+const SESSION_COOKIE = "__Secure-authjs.session-token"
 
 function getLocale(request: NextRequest): string {
   const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value
@@ -39,7 +39,11 @@ export async function proxy(request: NextRequest) {
 
   let token = null
   try {
-    token = await getToken({ req: request, secret })
+    token = await getToken({
+      req: request,
+      secret,
+      secureCookie: process.env.NODE_ENV === "production",
+    })
   } catch {
     console.log("[proxy] getToken error", { pathname, hasSecret: !!secret, hasCookie: !!cookieValue })
   }
