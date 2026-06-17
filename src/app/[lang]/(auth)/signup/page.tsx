@@ -63,25 +63,25 @@ export default function SignupPage() {
     setError("")
     if (step === 1) {
       if (!email || !name || !username) {
-        setError("Completá todos los campos")
+        setError(t.auth.completarCampos)
         return false
       }
       const result = signupSchema.shape.email.safeParse(email)
-      if (!result.success) { setError("Correo inválido"); return false }
+      if (!result.success) { setError(t.auth.correoInvalido); return false }
       const uResult = signupSchema.shape.username.safeParse(username)
-      if (!uResult.success) { setError(uResult.error.issues[0]?.message || "Usuario inválido"); return false }
+      if (!uResult.success) { setError(t.auth.usuarioInvalido); return false }
     }
     if (step === 2) {
       if (!password || !confirmPassword) {
-        setError("Completá todos los campos")
+        setError(t.auth.completarCampos)
         return false
       }
-      if (password.length < 6) { setError("Mínimo 6 caracteres"); return false }
-      if (password !== confirmPassword) { setError("Las contraseñas no coinciden"); return false }
+      if (password.length < 6) { setError(t.auth.minimoCaracteres); return false }
+      if (password !== confirmPassword) { setError(t.auth.contrasenasNoCoinciden); return false }
     }
     if (step === 3) {
       if (!securityQuestion || !securityAnswer) {
-        setError("Completá todos los campos")
+        setError(t.auth.completarCampos)
         return false
       }
     }
@@ -274,7 +274,7 @@ export default function SignupPage() {
                     variant="outline"
                     className="flex-1 h-12 rounded-xl text-sm font-medium"
                   >
-                    <ArrowLeft className="mr-1 h-4 w-4" /> Atrás
+                    <ArrowLeft className="mr-1 h-4 w-4" /> {t.auth.atras}
                   </Button>
                   <Button
                     type="button"
@@ -326,7 +326,7 @@ export default function SignupPage() {
                     variant="outline"
                     className="flex-1 h-12 rounded-xl text-sm font-medium"
                   >
-                    <ArrowLeft className="mr-1 h-4 w-4" /> Atrás
+                    <ArrowLeft className="mr-1 h-4 w-4" /> {t.auth.atras}
                   </Button>
                   <Button
                     type="submit"

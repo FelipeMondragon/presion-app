@@ -150,7 +150,7 @@ export default function DashboardPage() {
                   {lastReading.systolic}
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
-                  SIS
+                  {t.dashboard.sis}
                 </p>
               </div>
 
@@ -161,12 +161,12 @@ export default function DashboardPage() {
                   {lastReading.diastolic}
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
-                  DIA
+                  {t.dashboard.dia}
                 </p>
               </div>
 
               <div className="mt-1 shrink-0 text-right">
-                <p className="text-sm text-gray-400">mmHg</p>
+                <p className="text-sm text-gray-400">{t.dashboard.mmhg}</p>
                 <Badge className={`mt-1 ${lastClassification.bgColor} ${lastClassification.color} border-0`}>
                   {t.clasificacion[lastClassification.classification]}
                 </Badge>
@@ -180,26 +180,7 @@ export default function DashboardPage() {
                   {SPECTRUM_BG.map((bg, i) => (
                     <div key={i} className={cn("flex-1", bg)} />
                   ))}
-      </div>
-
-      {/* User profile card */}
-      <GlassCard className="p-4" variant="subtle">
-        <div className="flex items-center gap-4">
-          <Avatar
-            email={session?.user?.email}
-            name={session?.user?.name || session?.user?.username}
-            size="md"
-          />
-          <div>
-            <p className="font-semibold text-gray-900 dark:text-gray-100">
-              {session?.user?.name || session?.user?.username || session?.user?.email}
-            </p>
-            {session?.user?.username && (
-              <p className="text-sm text-gray-400">@{session.user.username}</p>
-            )}
-          </div>
-        </div>
-      </GlassCard>
+                </div>
                 {spectrumIndex >= 0 && (
                   <div
                     className="absolute -top-1.5 -translate-x-1/2 h-4 w-4 rounded-full border-2 border-gray-400 bg-white shadow-xs"
@@ -219,7 +200,7 @@ export default function DashboardPage() {
               {lastReading.pulse && (
                 <span className="flex items-center gap-1">
                   <Activity className="h-4 w-4" />
-                  {lastReading.pulse} bpm
+                  {lastReading.pulse} {t.dashboard.bpm}
                 </span>
               )}
               {lastReading.arm && (
@@ -255,7 +236,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {avgSystolic}/{avgDiastolic}
-                <span className="ml-1 text-sm font-normal text-gray-400">mmHg</span>
+                <span className="ml-1 text-sm font-normal text-gray-400">{t.dashboard.mmhg}</span>
               </p>
               <div className="flex items-center gap-2">
                 {avgClassification && (
@@ -263,7 +244,7 @@ export default function DashboardPage() {
                     {t.clasificacion[avgClassification.classification]}
                   </Badge>
                 )}
-                {avgPulse && <span className="text-sm text-gray-400">{avgPulse} bpm</span>}
+                {avgPulse && <span className="text-sm text-gray-400">{avgPulse} {t.dashboard.bpm}</span>}
               </div>
             </div>
           </GlassCard>
@@ -278,9 +259,9 @@ export default function DashboardPage() {
                 <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                   {weeklyReadings.length}
                 </span>
-                <span className="text-sm text-gray-400">registros</span>
+                <span className="text-sm text-gray-400">{t.dashboard.registros}</span>
               </div>
-              <p className="text-xs text-gray-400">esta semana</p>
+              <p className="text-xs text-gray-400">{t.dashboard.estaSemana}</p>
             </div>
           </GlassCard>
         </div>

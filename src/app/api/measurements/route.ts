@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/db/client"
 import { measurements } from "@/db/schema"
-import { eq, desc, and, gte, lte } from "drizzle-orm"
+import { eq, desc, and, gte, lte, count } from "drizzle-orm"
 import crypto from "crypto"
 
 export async function GET(request: Request) {
@@ -14,44 +14,43 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const dateFrom = searchParams.get("from")
   const dateTo = searchParams.get("to")
+  const limitParam = searchParams.get("limit")
+  const offsetParam = searchParams.get("offset")
+  const limit = limitParam ? parseInt(limitParam, 10) : null
+  const offset = offsetParam ? parseInt(offsetParam, 10) : 0
 
-  let query = db
-    .select()
-    .from(measurements)
-    .where(eq(measurements.userId, session.user.id))
-    .orderBy(desc(measurements.measuredAt))
+  const conditions = [eq(measurements.userId, session.user.id)]
+  const isPaginationRequest = limit !== null
 
   if (dateFrom) {
-    const fromDate = new Date(dateFrom).toISOString()
-    query = db
-      .select()
-      .from(measurements)
-      .where(
-        and(
-          eq(measurements.userId, session.user.id),
-          gte(measurements.measuredAt, fromDate)
-        )
-      )
-      .orderBy(desc(measurements.measuredAt))
-
-    if (dateTo) {
-      const end = new Date(dateTo)
-      end.setHours(23, 59, 59, 999)
-      query = db
-        .select()
-        .from(measurements)
-        .where(
-          and(
-            eq(measurements.userId, session.user.id),
-            gte(measurements.measuredAt, fromDate),
-            lte(measurements.measuredAt, end.toISOString())
-          )
-        )
-        .orderBy(desc(measurements.measuredAt))
-    }
+    conditions.push(gte(measurements.measuredAt, new Date(dateFrom).toISOString()))
+  }
+  if (dateTo) {
+    const end = new Date(dateTo)
+    end.setHours(23, 59, 59, 999)
+    conditions.push(lte(measurements.measuredAt, end.toISOString()))
   }
 
-  const data = await query
+  const where = and(...conditions)
+
+  const data = await db
+    .select()
+    .from(measurements)
+    .where(where)
+    .orderBy(desc(measurements.measuredAt))
+    .limit(limit ?? 999999)
+    .offset(offset)
+
+  if (isPaginationRequest) {
+    const totalResult = await db
+      .select({ count: count() })
+      .from(measurements)
+      .where(where)
+    const total = totalResult[0]?.count ?? 0
+
+    return NextResponse.json({ data: data.map(mapMeasurement), total })
+  }
+
   return NextResponse.json(data.map(mapMeasurement))
 }
 

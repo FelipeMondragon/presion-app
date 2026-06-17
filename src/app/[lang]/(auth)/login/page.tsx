@@ -110,7 +110,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={setEmail}
-              placeholder="correo@ejemplo.com"
+              placeholder={t.auth.correoPlaceholder}
               required
               autoComplete="email"
               error={error && !email ? error : undefined}

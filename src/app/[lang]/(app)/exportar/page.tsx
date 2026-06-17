@@ -42,7 +42,7 @@ export default function ExportarPage() {
     setLoading(true)
     const data = await fetchData(dateFrom, dateTo)
     if (data.length === 0) {
-      toast.error("No hay datos para exportar")
+      toast.error(t.exportar.sinDatos)
       setLoading(false)
       return
     }
@@ -50,11 +50,11 @@ export default function ExportarPage() {
     const doc = new jsPDF()
     doc.setFontSize(18)
     doc.setTextColor(220, 38, 38)
-    doc.text("Presión App", 14, 20)
+    doc.text(t.app.name, 14, 20)
     doc.setFontSize(10)
     doc.setTextColor(100, 100, 100)
     doc.text(
-      `Exportado: ${formatDate(new Date(), lang, { dateStyle: "long" })}`,
+      `${t.exportar.exportado} ${formatDate(new Date(), lang, { dateStyle: "long" })}`,
       14,
       28
     )
@@ -64,8 +64,8 @@ export default function ExportarPage() {
       m.systolic.toString(),
       m.diastolic.toString(),
       m.pulse?.toString() || "-",
-      m.arm === "left" ? "Izq" : "Der",
-      m.position === "sitting" ? "Sentado" : m.position === "lying" ? "Acostado" : "De pie",
+      m.arm === "left" ? t.brazo.left : t.brazo.right,
+      m.position === "sitting" ? t.posicion.sitting : m.position === "lying" ? t.posicion.lying : t.posicion.standing,
       m.notes || "",
     ])
 
@@ -73,12 +73,12 @@ export default function ExportarPage() {
       startY: 35,
       head: [
         [
-          "Fecha",
-          "Sistólica",
-          "Diastólica",
-          "Pulso",
-          "Brazo",
-          "Posición",
+          t.historial.fecha,
+          t.historial.sistolica,
+          t.historial.diastolica,
+          t.historial.pulso,
+          t.historial.brazo,
+          t.historial.posicion,
           "Notas",
         ],
       ],
@@ -102,37 +102,37 @@ export default function ExportarPage() {
     doc.setFontSize(11)
     doc.setTextColor(0, 0, 0)
     doc.text(
-      `Promedio: ${avgSystolic}/${avgDiastolic} mmHg - ${data.length} registros`,
+      `${t.exportar.promedio}: ${avgSystolic}/${avgDiastolic} ${t.dashboard.mmhg} - ${data.length} ${t.dashboard.registros}`,
       14,
       doc.lastAutoTable.finalY + 15
     )
 
     doc.save(`presion-${new Date().toISOString().slice(0, 10)}.pdf`)
     setLoading(false)
-    toast.success("PDF exportado correctamente")
+    toast.success(t.exportar.exitoPDF)
   }
 
   const exportToExcel = async () => {
     setLoading(true)
     const data = await fetchData(dateFrom, dateTo)
     if (data.length === 0) {
-      toast.error("No hay datos para exportar")
+      toast.error(t.exportar.sinDatos)
       setLoading(false)
       return
     }
 
     const rows = data.map((m: Measurement) => ({
-      Fecha: `${new Date(m.measured_at).toISOString().slice(0, 10)} ${new Date(m.measured_at).toTimeString().slice(0, 5)}`,
-      Sistólica: m.systolic,
-      Diastólica: m.diastolic,
-      Pulso: m.pulse || "",
-      Brazo: m.arm === "left" ? "Izquierdo" : "Derecho",
-      Posición:
+      [t.historial.fecha]: `${new Date(m.measured_at).toISOString().slice(0, 10)} ${new Date(m.measured_at).toTimeString().slice(0, 5)}`,
+      [t.historial.sistolica]: m.systolic,
+      [t.historial.diastolica]: m.diastolic,
+      [t.historial.pulso]: m.pulse || "",
+      [t.historial.brazo]: m.arm === "left" ? t.brazo.left : t.brazo.right,
+      [t.historial.posicion]:
         m.position === "sitting"
-          ? "Sentado"
+          ? t.posicion.sitting
           : m.position === "lying"
-          ? "Acostado"
-          : "De pie",
+          ? t.posicion.lying
+          : t.posicion.standing,
       Notas: m.notes || "",
     }))
 
@@ -141,7 +141,7 @@ export default function ExportarPage() {
     XLSX.utils.book_append_sheet(wb, ws, "Mediciones")
     XLSX.writeFile(wb, `presion-${new Date().toISOString().slice(0, 10)}.xlsx`)
     setLoading(false)
-    toast.success("Excel exportado correctamente")
+    toast.success(t.exportar.exitoExcel)
   }
 
   return (
