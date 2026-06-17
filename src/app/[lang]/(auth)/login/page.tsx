@@ -43,19 +43,29 @@ export default function LoginPage() {
     }
 
     setLoading(true)
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    })
+    try {
+      const res = await Promise.race([
+        signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        }),
+        new Promise<undefined>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 30000)
+        ),
+      ])
 
-    if (res?.error) {
+      if (res?.error) {
+        setError(t.auth.errorCredenciales)
+        setLoading(false)
+        return
+      }
+
+      window.location.href = `/${lang}/dashboard`
+    } catch {
       setError(t.auth.errorCredenciales)
       setLoading(false)
-      return
     }
-
-    window.location.href = `/${lang}/dashboard`
   }
 
   return (
