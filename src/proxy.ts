@@ -4,6 +4,8 @@ import { getToken } from "next-auth/jwt"
 const LOCALES = ["es", "en"]
 const DEFAULT_LOCALE = "es"
 
+const SESSION_COOKIE = "__Secure-next-auth.session-token"
+
 function getLocale(request: NextRequest): string {
   const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value
   if (cookieLocale && LOCALES.includes(cookieLocale)) return cookieLocale
@@ -32,22 +34,33 @@ export async function proxy(request: NextRequest) {
 
   const locale = pathname.split("/")[1] || DEFAULT_LOCALE
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
+  const secret = process.env.NEXTAUTH_SECRET
+  const cookieValue = request.cookies.get(SESSION_COOKIE)?.value?.slice(0, 20)
 
-  const isLoggedIn = !!token
+  let token = null
+  try {
+    token = await getToken({ req: request, secret })
+  } catch {
+    console.log("[proxy] getToken error", { pathname, hasSecret: !!secret, hasCookie: !!cookieValue })
+  }
 
-  if (isLoggedIn && (pathname.endsWith("/login") || pathname.endsWith("/signup"))) {
-    request.nextUrl.pathname = `/${locale}/dashboard`
-    return NextResponse.redirect(request.nextUrl)
+  if (pathname.startsWith(`/${locale}/login`) || pathname.startsWith(`/${locale}/signup`)) {
+    const isLoggedIn = !!token
+    if (isLoggedIn) {
+      request.nextUrl.pathname = `/${locale}/dashboard`
+      return NextResponse.redirect(request.nextUrl)
+    }
+    return NextResponse.next({ request })
   }
 
   const isAppRoute = pathname.match(/^\/(es|en)\/(dashboard|registrar|historial|exportar|configuracion)/)
-  if (!isLoggedIn && isAppRoute) {
-    request.nextUrl.pathname = `/${locale}/login`
-    return NextResponse.redirect(request.nextUrl)
+  if (isAppRoute) {
+    const isLoggedIn = !!token
+    if (!isLoggedIn) {
+      request.nextUrl.pathname = `/${locale}/login`
+      return NextResponse.redirect(request.nextUrl)
+    }
+    return NextResponse.next({ request })
   }
 
   return NextResponse.next({ request })
