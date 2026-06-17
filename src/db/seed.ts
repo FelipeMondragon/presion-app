@@ -13,12 +13,16 @@ export async function seed(db: any) {
 
   const userId = crypto.randomUUID()
   const passwordHash = await hash("test1234", 12)
+  const securityAnswerHash = await hash("Firulais", 10)
 
   await db.insert(users).values({
     id: userId,
     email: "test@example.com",
     passwordHash,
     name: "Paciente de prueba",
+    username: "testuser",
+    securityQuestion: "pregunta1",
+    securityAnswer: securityAnswerHash,
   })
 
   const now = new Date()

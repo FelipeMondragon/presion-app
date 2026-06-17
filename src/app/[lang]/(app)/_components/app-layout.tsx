@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { AnimatedBg } from "@/components/animated-bg"
 import { HeartLogo } from "@/components/heart-logo"
+import { Avatar } from "@/components/avatar"
 import { cn } from "@/lib/utils"
 import {
   Home,
@@ -62,7 +63,8 @@ export function AppLayout({
 
   const toggleLang = () => {
     const newLang = lang === "es" ? "en" : "es"
-    const newPath = pathname.replace(`/${lang}`, `/${newLang}`)
+    const search = window.location.search
+    const newPath = pathname.replace(`/${lang}`, `/${newLang}`) + search
     document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000`
     window.location.href = newPath
   }
@@ -143,9 +145,11 @@ export function AppLayout({
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex w-full items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-rose-500 text-xs font-bold text-white shadow-sm">
-                {(session.user.name || session.user.email || "U").charAt(0).toUpperCase()}
-              </div>
+              <Avatar
+                email={session.user.email}
+                name={session.user.name || session.user.username}
+                size="sm"
+              />
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                   {session.user.name || session.user.email}

@@ -13,7 +13,12 @@ declare module "next-auth" {
       id: string
       email: string
       name?: string | null
+      username?: string | null
     }
+  }
+
+  interface User {
+    username?: string | null
   }
 }
 
@@ -44,7 +49,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           const isValid = await compare(password, user.passwordHash)
           if (!isValid) return null
 
-          return { id: user.id, email: user.email, name: user.name }
+          return { id: user.id, email: user.email, name: user.name, username: user.username }
         } catch {
           return null
         }
@@ -56,12 +61,14 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         token.id = user.id
+        token.username = user.username
       }
       return token
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
+        session.user.username = token.username as string | undefined
       }
       return session
     },

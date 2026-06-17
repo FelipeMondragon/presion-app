@@ -9,6 +9,7 @@ import { GlassCard } from "@/components/glass-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { HeartLogo } from "@/components/heart-logo"
+import { Avatar } from "@/components/avatar"
 import { PlusCircle, Heart, Activity, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { formatDate, cn } from "@/lib/utils"
@@ -109,6 +110,25 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* User profile card */}
+      <GlassCard className="p-4" variant="subtle">
+        <div className="flex items-center gap-4">
+          <Avatar
+            email={session?.user?.email}
+            name={session?.user?.name || session?.user?.username}
+            size="md"
+          />
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">
+              {session?.user?.name || session?.user?.username || session?.user?.email}
+            </p>
+            {session?.user?.username && (
+              <p className="text-sm text-gray-400">@{session.user.username}</p>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+
       {/* Hero — Última medición */}
       <GlassCard className="p-6" variant="elevated">
         {lastReading && lastClassification ? (
@@ -160,7 +180,26 @@ export default function DashboardPage() {
                   {SPECTRUM_BG.map((bg, i) => (
                     <div key={i} className={cn("flex-1", bg)} />
                   ))}
-                </div>
+      </div>
+
+      {/* User profile card */}
+      <GlassCard className="p-4" variant="subtle">
+        <div className="flex items-center gap-4">
+          <Avatar
+            email={session?.user?.email}
+            name={session?.user?.name || session?.user?.username}
+            size="md"
+          />
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">
+              {session?.user?.name || session?.user?.username || session?.user?.email}
+            </p>
+            {session?.user?.username && (
+              <p className="text-sm text-gray-400">@{session.user.username}</p>
+            )}
+          </div>
+        </div>
+      </GlassCard>
                 {spectrumIndex >= 0 && (
                   <div
                     className="absolute -top-1.5 -translate-x-1/2 h-4 w-4 rounded-full border-2 border-gray-400 bg-white shadow-xs"

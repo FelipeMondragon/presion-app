@@ -13,6 +13,7 @@ export function FloatingInput({
   autoComplete,
   error,
   size = "sm",
+  suffixIcon,
 }: {
   id: string
   label: string
@@ -24,6 +25,7 @@ export function FloatingInput({
   autoComplete?: string
   error?: string
   size?: "sm" | "lg"
+  suffixIcon?: React.ReactNode
 }) {
   const isLg = size === "lg"
 
@@ -41,11 +43,17 @@ export function FloatingInput({
           "peer w-full rounded-xl border bg-white/50 px-4 transition-all placeholder-transparent focus:outline-none",
           "dark:bg-gray-900/50 dark:text-gray-100",
           isLg ? "h-16 pt-5 text-2xl font-mono" : "h-12 pt-3 text-sm",
+          suffixIcon && "pr-12",
           error
             ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
             : "border-gray-200 focus:border-red-400 focus:ring-2 focus:ring-red-400/20 dark:border-gray-600 dark:focus:border-red-500"
         )}
       />
+      {suffixIcon && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          {suffixIcon}
+        </div>
+      )}
       <label
         htmlFor={id}
         className={cn(

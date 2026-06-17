@@ -40,11 +40,37 @@ export const signupSchema = z
     email: z.string().email("Correo inválido"),
     password: z.string().min(6, "Mínimo 6 caracteres"),
     confirmPassword: z.string(),
+    name: z.string().min(1, "El nombre es requerido").max(100),
+    username: z
+      .string()
+      .min(3, "Mínimo 3 caracteres")
+      .max(30, "Máximo 30 caracteres")
+      .regex(/^[a-zA-Z0-9_]+$/, "Solo letras, números y guión bajo"),
+    securityQuestion: z.string().min(1, "Seleccioná una pregunta"),
+    securityAnswer: z.string().min(1, "La respuesta es requerida"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Las contraseñas no coinciden",
     path: ["confirmPassword"],
   })
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Correo inválido"),
+})
+
+export const resetPasswordSchema = z
+  .object({
+    email: z.string().email("Correo inválido"),
+    answer: z.string().min(1, "La respuesta es requerida"),
+    newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  })
+
 export type LoginFormData = z.infer<typeof loginSchema>
 export type SignupFormData = z.infer<typeof signupSchema>
+export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
