@@ -13,6 +13,8 @@ import { toast } from "sonner"
 import { Bell, Mail, Globe, Clock, Plus, X, Loader2 } from "lucide-react"
 import type { ReminderSettings } from "@/lib/types"
 import { LabeledSelect } from "@/components/labeled-select"
+import { useTheme } from "next-themes"
+import { Sun, Moon } from "lucide-react"
 
 const TIMEZONES = [
   "America/Chihuahua",
@@ -39,6 +41,9 @@ export default function ConfiguracionPage() {
   const [emailNotifs, setEmailNotifs] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loadingSettings, setLoadingSettings] = useState(true)
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     async function loadSettings() {
@@ -81,6 +86,16 @@ export default function ConfiguracionPage() {
     setReminderTimes(newTimes)
   }
 
+  const handleBrowserToggle = async (checked: boolean) => {
+    setBrowserNotifs(checked)
+    if (checked && typeof Notification !== "undefined" && Notification.permission === "default") {
+      const perm = await Notification.requestPermission()
+      if (perm !== "granted") {
+        toast.error(t.configuracion.permisoDenegado)
+      }
+    }
+  }
+
   const handleSaveReminders = async () => {
     setSaving(true)
     if (!session?.user?.id) return
@@ -99,7 +114,7 @@ export default function ConfiguracionPage() {
     setSaving(false)
     if (!res.ok) {
       const data = await res.json()
-      toast.error(data.error || "Error al guardar")
+      toast.error(data.error || t.configuracion.errorGuardar)
       return
     }
     toast.success(t.configuracion.recordatoriosGuardados)
@@ -133,6 +148,22 @@ export default function ConfiguracionPage() {
               className="glass-subtle border-gray-200 dark:border-gray-600"
             />
           </div>
+
+          {mounted && (
+            <div className="space-y-2">
+              <Label className="text-sm text-gray-500 dark:text-gray-400">
+                {t.configuracion.modoOscuro}
+              </Label>
+              <Button
+                variant="outline"
+                className="w-full justify-between glass-subtle border-gray-200 dark:border-gray-600"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                <span>{theme === "dark" ? t.configuracion.oscuro : t.configuracion.claro}</span>
+                {theme === "dark" ? <Moon className="h-4 w-4 text-gray-400" /> : <Sun className="h-4 w-4 text-gray-400" />}
+              </Button>
+            </div>
+          )}
 
           <LabeledSelect
             value={timezone}
@@ -217,7 +248,7 @@ export default function ConfiguracionPage() {
                   </div>
                   <Switch
                     checked={browserNotifs}
-                    onCheckedChange={setBrowserNotifs}
+                    onCheckedChange={handleBrowserToggle}
                   />
                 </div>
                 <div className="flex items-center justify-between">

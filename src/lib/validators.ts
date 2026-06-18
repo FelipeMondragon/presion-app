@@ -70,6 +70,13 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   })
 
+export const reminderSettingsSchema = z.object({
+  times: z.array(z.string()).optional(),
+  email_enabled: z.boolean().optional(),
+  browser_enabled: z.boolean().optional(),
+  timezone: z.string().optional(),
+})
+
 export type LoginFormData = z.infer<typeof loginSchema>
 export type SignupFormData = z.infer<typeof signupSchema>
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>

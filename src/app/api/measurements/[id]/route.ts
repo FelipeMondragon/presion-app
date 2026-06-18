@@ -21,5 +21,5 @@ export async function DELETE(
       and(eq(measurements.id, id), eq(measurements.userId, session.user.id))
     )
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } })
 }

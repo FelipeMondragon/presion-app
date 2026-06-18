@@ -3,45 +3,47 @@ import { hash, compare } from "bcryptjs"
 import { db } from "@/db/client"
 import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
+import { resetPasswordSchema } from "@/lib/validators"
+import { checkRateLimit } from "@/lib/rate-limiter"
+
+const GENERIC_ERROR = "Correo o respuesta inválidos"
 
 export async function POST(request: Request) {
-  const { email, answer, newPassword, confirmPassword } = await request.json()
-
-  if (!email || !answer) {
-    return NextResponse.json({ error: "Email y respuesta requeridos" }, { status: 400 })
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  if (!checkRateLimit(`reset-pw:${ip}`, 5, 600_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
+  let body: unknown
+  try { body = await request.json() } catch {
+    return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 })
+  }
+
+  const parsed = resetPasswordSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 })
+  }
+
+  const { email, answer, newPassword } = parsed.data
+
   const [user] = await db
-    .select({
-      id: users.id,
-      securityAnswer: users.securityAnswer,
-    })
+    .select({ id: users.id, securityAnswer: users.securityAnswer })
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
 
   if (!user) {
-    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
+    return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 })
   }
 
   const isValid = await compare(answer, user.securityAnswer)
-
   if (!isValid) {
-    return NextResponse.json({ error: "Respuesta incorrecta" }, { status: 400 })
+    return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 })
   }
 
-  // Step 2 verification only — no new password provided
+  // Step 2 — verify only
   if (!newPassword) {
-    return NextResponse.json({ verified: true })
-  }
-
-  // Step 3 — actually reset password
-  if (!confirmPassword || newPassword !== confirmPassword) {
-    return NextResponse.json({ error: "Las contraseñas no coinciden" }, { status: 400 })
-  }
-
-  if (newPassword.length < 6) {
-    return NextResponse.json({ error: "Mínimo 6 caracteres" }, { status: 400 })
+    return NextResponse.json({ verified: true }, { headers: { "Cache-Control": "no-store" } })
   }
 
   const passwordHash = await hash(newPassword, 10)
@@ -51,5 +53,5 @@ export async function POST(request: Request) {
     .set({ passwordHash })
     .where(eq(users.id, user.id))
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } })
 }

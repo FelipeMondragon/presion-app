@@ -4,11 +4,20 @@ import { db } from "@/db/client"
 import { measurements } from "@/db/schema"
 import { eq, desc, and, gte, lte, count } from "drizzle-orm"
 import crypto from "crypto"
+import { measurementSchema } from "@/lib/validators"
+import { checkRateLimit } from "@/lib/rate-limiter"
+
+export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  }
+
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  if (!checkRateLimit(`measurements:${ip}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -32,13 +41,14 @@ export async function GET(request: Request) {
   }
 
   const where = and(...conditions)
+  const limitValue = limit ?? 1000
 
   const data = await db
     .select()
     .from(measurements)
     .where(where)
     .orderBy(desc(measurements.measuredAt))
-    .limit(limit ?? 999999)
+    .limit(limitValue)
     .offset(offset)
 
   if (isPaginationRequest) {
@@ -48,10 +58,10 @@ export async function GET(request: Request) {
       .where(where)
     const total = totalResult[0]?.count ?? 0
 
-    return NextResponse.json({ data: data.map(mapMeasurement), total })
+    return NextResponse.json({ data: data.map(mapMeasurement), total }, { headers: { "Cache-Control": "private, no-cache" } })
   }
 
-  return NextResponse.json(data.map(mapMeasurement))
+  return NextResponse.json(data.map(mapMeasurement), { headers: { "Cache-Control": "private, no-cache" } })
 }
 
 export async function POST(request: Request) {
@@ -60,22 +70,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const body = await request.json()
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  if (!checkRateLimit(`measurements:${ip}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
+  }
+
+  let body: unknown
+  try { body = await request.json() } catch {
+    return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 })
+  }
+
+  const parsed = measurementSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 })
+  }
+
   const id = crypto.randomUUID()
+  const data = parsed.data
 
   await db.insert(measurements).values({
     id,
     userId: session.user.id,
-    systolic: body.systolic,
-    diastolic: body.diastolic,
-    pulse: body.pulse ?? null,
-    arm: body.arm ?? "left",
-    position: body.position ?? "sitting",
-    notes: body.notes ?? null,
-    measuredAt: body.measured_at ?? new Date().toISOString(),
+    systolic: data.systolic,
+    diastolic: data.diastolic,
+    pulse: data.pulse ?? null,
+    arm: data.arm ?? "left",
+    position: data.position ?? "sitting",
+    notes: data.notes ?? null,
+    measuredAt: data.measured_at ?? new Date().toISOString(),
   })
 
-  return NextResponse.json({ success: true, id })
+  return NextResponse.json({ success: true, id }, { headers: { "Cache-Control": "no-store" } })
 }
 
 function mapMeasurement(m: typeof measurements.$inferSelect) {
