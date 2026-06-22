@@ -3,7 +3,7 @@ import { hash, compare } from "bcryptjs"
 import { db } from "@/db/client"
 import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { resetPasswordSchema } from "@/lib/validators"
+import { resetApiSchema, resetPasswordSchema, verifyAnswerSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
 
 const GENERIC_ERROR = "Correo o respuesta inválidos"
@@ -19,12 +19,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 })
   }
 
-  const parsed = resetPasswordSchema.safeParse(body)
+  const hasPassword = typeof body === "object" && body !== null && "newPassword" in body
+  const parsed = hasPassword ? resetApiSchema.safeParse(body) : verifyAnswerSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 })
+    const issue = parsed.error.issues[0]
+    return NextResponse.json({ error: `${issue.path.join(".")}: ${issue.message}` }, { status: 400 })
   }
 
-  const { email, answer, newPassword } = parsed.data
+  const { email, answer, newPassword } = parsed.data as { email: string; answer: string; newPassword?: string }
 
   const [user] = await db
     .select({ id: users.id, securityAnswer: users.securityAnswer })

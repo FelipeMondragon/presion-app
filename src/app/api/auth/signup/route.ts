@@ -4,7 +4,7 @@ import crypto from "crypto"
 import { db } from "@/db/client"
 import { users } from "@/db/schema"
 import { eq, or } from "drizzle-orm"
-import { signupSchema } from "@/lib/validators"
+import { signupApiSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: Request) {
@@ -18,9 +18,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 })
   }
 
-  const parsed = signupSchema.safeParse(body)
+  const parsed = signupApiSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 })
+    const issue = parsed.error.issues[0]
+    return NextResponse.json({ error: `${issue.path.join(".")}: ${issue.message}` }, { status: 400 })
   }
 
   const { email, password, name, username, securityQuestion, securityAnswer } = parsed.data
