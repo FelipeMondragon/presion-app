@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useDeferredValue, useMemo } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
@@ -34,9 +34,16 @@ import { cn } from "@/lib/utils"
 
 export default function HistorialPage() {
   const params = useParams()
+  const router = useRouter()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
   const { data: session } = useSession()
+
+  useEffect(() => {
+    if (session?.user?.role === "admin") {
+      router.replace(`/${lang}/panel`)
+    }
+  }, [session, router, lang])
 
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [loading, setLoading] = useState(true)

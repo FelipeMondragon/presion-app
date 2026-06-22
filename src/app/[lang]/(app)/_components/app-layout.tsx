@@ -26,15 +26,26 @@ import {
   Sun,
   Moon,
   Share2,
+  LayoutDashboard,
 } from "lucide-react"
 
-const navItems = [
-  { href: "dashboard", icon: Home, key: "dashboard" as const },
-  { href: "registrar", icon: PlusCircle, key: "registrar" as const },
-  { href: "historial", icon: History, key: "historial" as const },
-  { href: "exportar", icon: FileDown, key: "exportar" as const },
-  { href: "configuracion", icon: Settings, key: "configuracion" as const },
-]
+function getNavItems(role?: string) {
+  interface NavItem { href: string; icon: React.ComponentType<{ className?: string }>; key: string }
+  if (role === "admin") {
+    return [
+      { href: "panel", icon: LayoutDashboard, key: "panel" },
+      { href: "usuarios", icon: Settings, key: "usuarios" },
+      { href: "configuracion", icon: Settings, key: "configuracion" },
+    ]
+  }
+  return [
+    { href: "dashboard", icon: Home, key: "dashboard" },
+    { href: "registrar", icon: PlusCircle, key: "registrar" },
+    { href: "historial", icon: History, key: "historial" },
+    { href: "exportar", icon: FileDown, key: "exportar" },
+    { href: "configuracion", icon: Settings, key: "configuracion" },
+  ]
+}
 
 export function AppLayout({
   children,
@@ -90,6 +101,7 @@ export function AppLayout({
     }
   }
 
+  const navItems = getNavItems(session?.user?.role)
   const currentPath = pathname.split("/").pop() || ""
 
   return (
@@ -151,7 +163,7 @@ export function AppLayout({
                 )}
               >
                 <item.icon className={cn("h-5 w-5", isActive && "drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]")} />
-                {t.nav[item.key]}
+                {t.nav[item.key as keyof typeof t.nav]}
               </Link>
             )
           })}

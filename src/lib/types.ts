@@ -11,6 +11,15 @@ export type Measurement = {
   created_at: string
 }
 
+export type User = {
+  id: string
+  email: string
+  name: string | null
+  username: string | null
+  role: string
+  createdAt: string
+}
+
 export type ReminderSettings = {
   user_id: string
   times: string[]

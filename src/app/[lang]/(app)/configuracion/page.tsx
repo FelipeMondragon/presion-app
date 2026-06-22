@@ -35,6 +35,12 @@ export default function ConfiguracionPage() {
   const { data: session } = useSession()
 
   const [userEmail, setUserEmail] = useState("")
+  const [userName, setUserName] = useState("")
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
   const [timezone, setTimezone] = useState("America/Chihuahua")
   const [reminderTimes, setReminderTimes] = useState<string[]>(["08:00", "20:00"])
   const [browserNotifs, setBrowserNotifs] = useState(true)
@@ -53,6 +59,7 @@ export default function ConfiguracionPage() {
       }
 
       setUserEmail(session.user.email || "")
+      setUserName(session.user.name || "")
 
       const res = await fetch("/api/reminder-settings")
       const data = await res.json()
@@ -120,6 +127,49 @@ export default function ConfiguracionPage() {
     toast.success(t.configuracion.recordatoriosGuardados)
   }
 
+  const handleSaveProfile = async () => {
+    setSavingProfile(true)
+    const res = await fetch(`/api/users/${session?.user?.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: userName }),
+    })
+    setSavingProfile(false)
+    if (!res.ok) {
+      const data = await res.json()
+      toast.error(data.error || t.configuracion.errorGuardar)
+      return
+    }
+    toast.success(t.configuracion.perfilActualizado)
+  }
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmNewPassword) {
+      toast.error(t.auth.contrasenasNoCoinciden)
+      return
+    }
+    if (newPassword.length < 6) {
+      toast.error(t.auth.minimoCaracteres)
+      return
+    }
+    setChangingPassword(true)
+    const res = await fetch(`/api/users/${session?.user?.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword: confirmNewPassword }),
+    })
+    setChangingPassword(false)
+    if (!res.ok) {
+      const data = await res.json()
+      toast.error(data.error || t.configuracion.errorGuardar)
+      return
+    }
+    toast.success(t.configuracion.contrasenaCambiada)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmNewPassword("")
+  }
+
   const toggleLang = () => {
     const newLang = lang === "es" ? "en" : "es"
     document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000`
@@ -137,17 +187,37 @@ export default function ConfiguracionPage() {
         <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">
           {t.configuracion.perfil}
         </h2>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-sm text-gray-500 dark:text-gray-400">
-              {t.configuracion.email}
-            </Label>
-            <Input
-              value={userEmail}
-              disabled
-              className="glass-subtle border-gray-200 dark:border-gray-600"
-            />
-          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm text-gray-500 dark:text-gray-400">
+                {t.configuracion.email}
+              </Label>
+              <Input
+                value={userEmail}
+                disabled
+                className="glass-subtle border-gray-200 dark:border-gray-600"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-gray-500 dark:text-gray-400">
+                {t.auth.nombre}
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="flex-1 glass-subtle border-gray-200 dark:border-gray-600"
+                />
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                  variant="outline"
+                  className="shrink-0 glass-subtle border-gray-200 dark:border-gray-600"
+                >
+                  {savingProfile ? t.comun.cargando : t.configuracion.guardarPerfil}
+                </Button>
+              </div>
+            </div>
 
           {mounted && (
             <div className="space-y-2">
@@ -185,6 +255,55 @@ export default function ConfiguracionPage() {
               <Globe className="h-4 w-4 text-gray-400" />
             </Button>
           </div>
+        </div>
+      </GlassCard>
+
+      {/* Cambiar contraseña */}
+      <GlassCard className="p-6">
+        <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">
+          {t.configuracion.cambiarContrasena}
+        </h2>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm text-gray-500 dark:text-gray-400">
+              {t.configuracion.contrasenaActual}
+            </Label>
+            <Input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="glass-subtle border-gray-200 dark:border-gray-600"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm text-gray-500 dark:text-gray-400">
+              {t.configuracion.nuevaContrasena}
+            </Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="glass-subtle border-gray-200 dark:border-gray-600"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm text-gray-500 dark:text-gray-400">
+              {t.configuracion.confirmarNuevaContrasena}
+            </Label>
+            <Input
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              className="glass-subtle border-gray-200 dark:border-gray-600"
+            />
+          </div>
+          <Button
+            onClick={handleChangePassword}
+            disabled={changingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+            className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/25 border-0"
+          >
+            {changingPassword ? t.configuracion.cambiandoContrasena : t.configuracion.cambiarContrasena}
+          </Button>
         </div>
       </GlassCard>
 

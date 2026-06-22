@@ -11,6 +11,18 @@ export async function seed(db: any) {
 
   console.log("🌱 Seeding database...")
 
+  const adminId = crypto.randomUUID()
+  const adminPasswordHash = await hash("admin1234", 12)
+
+  await db.insert(users).values({
+    id: adminId,
+    email: "admin@example.com",
+    passwordHash: adminPasswordHash,
+    name: "Administrador",
+    username: "admin",
+    role: "admin",
+  })
+
   const userId = crypto.randomUUID()
   const passwordHash = await hash("test1234", 12)
   const securityAnswerHash = await hash("Firulais", 10)
@@ -78,7 +90,7 @@ export async function seed(db: any) {
     timezone: "America/Chihuahua",
   })
 
-  console.log("✅ Seed data created (test@example.com / test1234)")
+  console.log("✅ Seed data created (admin@example.com / admin1234, test@example.com / test1234)")
 }
 
 const isMainScript = process.argv[1]?.replace(/\\/g, "/").endsWith("seed.ts")

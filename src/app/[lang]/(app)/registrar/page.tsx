@@ -24,6 +24,12 @@ export default function RegistrarPage() {
   const { data: session } = useSession()
   const syncing = useRef(false)
 
+  useEffect(() => {
+    if (session?.user?.role === "admin") {
+      router.replace(`/${lang}/panel`)
+    }
+  }, [session, router, lang])
+
   const [systolic, setSystolic] = useState(searchParams.get("s") || "")
   const [diastolic, setDiastolic] = useState(searchParams.get("d") || "")
   const [pulse, setPulse] = useState(searchParams.get("p") || "")
