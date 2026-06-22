@@ -9,7 +9,7 @@ import { GlassCard } from "@/components/glass-card"
 import { HeartLogo } from "@/components/heart-logo"
 import { FloatingInput } from "@/components/floating-input"
 import { Loader2, ArrowLeft, Eye, EyeOff, CheckCircle } from "lucide-react"
-import { forgotPasswordSchema, resetPasswordSchema } from "@/lib/validators"
+import { forgotPasswordSchema, resetPasswordSchema, verifyAnswerSchema } from "@/lib/validators"
 import { cn } from "@/lib/utils"
 
 export default function RecuperarPage() {
@@ -64,8 +64,9 @@ export default function RecuperarPage() {
     e.preventDefault()
     setError("")
 
-    if (!answer.trim()) {
-      setError(t.auth.respuestaSeguridad + " es requerida")
+    const result = verifyAnswerSchema.safeParse({ email, answer })
+    if (!result.success) {
+      setError(result.error.issues[0]?.message)
       return
     }
 
@@ -73,7 +74,7 @@ export default function RecuperarPage() {
     const res = await fetch("/api/auth/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, answer, newPassword: "" }),
+      body: JSON.stringify({ email, answer }),
     })
 
     setLoading(false)
@@ -106,7 +107,7 @@ export default function RecuperarPage() {
     const res = await fetch("/api/auth/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, answer, newPassword, confirmPassword }),
+      body: JSON.stringify({ email, answer, newPassword }),
     })
 
     setLoading(false)

@@ -70,11 +70,35 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   })
 
+export const resetApiSchema = z.object({
+  email: z.string().email("Correo inválido"),
+  answer: z.string().min(1, "La respuesta es requerida"),
+  newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+})
+
+export const verifyAnswerSchema = z.object({
+  email: z.string().email("Correo inválido"),
+  answer: z.string().min(1, "La respuesta es requerida"),
+})
+
 export const reminderSettingsSchema = z.object({
   times: z.array(z.string()).optional(),
   email_enabled: z.boolean().optional(),
   browser_enabled: z.boolean().optional(),
   timezone: z.string().optional(),
+})
+
+export const signupApiSchema = z.object({
+  email: z.string().email("Correo inválido"),
+  password: z.string().min(6, "Mínimo 6 caracteres"),
+  name: z.string().min(1, "El nombre es requerido").max(100),
+  username: z
+    .string()
+    .min(3, "Mínimo 3 caracteres")
+    .max(30, "Máximo 30 caracteres")
+    .regex(/^[a-zA-Z0-9_]+$/, "Solo letras, números y guión bajo"),
+  securityQuestion: z.string().min(1, "Seleccioná una pregunta"),
+  securityAnswer: z.string().min(1, "La respuesta es requerida"),
 })
 
 export type LoginFormData = z.infer<typeof loginSchema>
