@@ -26,7 +26,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { Trash2, Loader2, BarChart3, List } from "lucide-react"
+import { Trash2, Loader2, BarChart3, List, ChevronLeft, ChevronRight } from "lucide-react"
 import { LabeledSelect } from "@/components/labeled-select"
 import { formatDate, formatDateShort } from "@/lib/utils"
 import type { Measurement } from "@/lib/types"
@@ -44,6 +44,8 @@ export default function HistorialPage() {
   const deferredFilter = useDeferredValue(filter)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [view, setView] = useState<"chart" | "list">("chart")
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +90,17 @@ export default function HistorialPage() {
     return measurements
   }, [measurements, deferredFilter])
 
+  const totalPages = Math.max(1, Math.ceil(filteredMeasurements.length / PAGE_SIZE))
+
+  const paginatedMeasurements = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredMeasurements.slice(start, start + PAGE_SIZE)
+  }, [filteredMeasurements, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filter])
+
   const handleDelete = async (id: string) => {
     if (!confirm(t.historial.eliminarConfirmacion)) return
     setDeleting(id)
@@ -126,7 +139,7 @@ export default function HistorialPage() {
             onValueChange={setFilter}
             label=""
             options={[
-              { value: "all", label: "Todo" },
+              { value: "all", label: t.historial.filtroTodo },
               { value: "week", label: t.historial.filtroSemana },
               { value: "month", label: t.historial.filtroMes },
               { value: "year", label: t.historial.filtroAno },
@@ -233,25 +246,26 @@ export default function HistorialPage() {
               {t.historial.sinMediciones}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-gray-200/50 dark:border-gray-700/30">
-                    <TableHead>{t.historial.fecha}</TableHead>
-                    <TableHead>{t.historial.sistolica}</TableHead>
-                    <TableHead>{t.historial.diastolica}</TableHead>
-                    <TableHead>{t.historial.pulso}</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      {t.historial.brazo}
-                    </TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      {t.historial.posicion}
-                    </TableHead>
-                    <TableHead className="w-12">{t.historial.acciones}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredMeasurements.map((m) => {
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-gray-200/50 dark:border-gray-700/30">
+                      <TableHead>{t.historial.fecha}</TableHead>
+                      <TableHead>{t.historial.sistolica}</TableHead>
+                      <TableHead>{t.historial.diastolica}</TableHead>
+                      <TableHead>{t.historial.pulso}</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        {t.historial.brazo}
+                      </TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        {t.historial.posicion}
+                      </TableHead>
+                      <TableHead className="w-12">{t.historial.acciones}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedMeasurements.map((m) => {
                     const bp = bpCache[m.id]
                     return (
                       <TableRow key={m.id} className="border-gray-200/50 dark:border-gray-700/30">
@@ -294,6 +308,32 @@ export default function HistorialPage() {
                 </TableBody>
               </Table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 py-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="h-9"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="h-9"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </GlassCard>
       )}

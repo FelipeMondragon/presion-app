@@ -1,0 +1,13 @@
+{
+  "name": "Presión App",
+  "short_name": "Presión",
+  "description": "Control de presión arterial",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ef4444",
+  "icons": [
+    { "src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" },
+    { "src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml" }
+  ]
+}

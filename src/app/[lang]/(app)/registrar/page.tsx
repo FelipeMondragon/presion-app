@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
@@ -18,16 +18,18 @@ import { Heart, Loader2 } from "lucide-react"
 export default function RegistrarPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
   const { data: session } = useSession()
+  const syncing = useRef(false)
 
-  const [systolic, setSystolic] = useState("")
-  const [diastolic, setDiastolic] = useState("")
-  const [pulse, setPulse] = useState("")
-  const [arm, setArm] = useState("left")
-  const [position, setPosition] = useState("sitting")
-  const [notes, setNotes] = useState("")
+  const [systolic, setSystolic] = useState(searchParams.get("s") || "")
+  const [diastolic, setDiastolic] = useState(searchParams.get("d") || "")
+  const [pulse, setPulse] = useState(searchParams.get("p") || "")
+  const [arm, setArm] = useState(searchParams.get("a") || "left")
+  const [position, setPosition] = useState(searchParams.get("pos") || "sitting")
+  const [notes, setNotes] = useState(searchParams.get("n") || "")
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -35,6 +37,23 @@ export default function RegistrarPage() {
   const d = parseInt(diastolic)
   const hasValidNumbers = s >= 50 && s <= 300 && d >= 30 && d <= 200
   const classification = hasValidNumbers ? classifyBP(s, d) : null
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (syncing.current) return
+      const sp = new URLSearchParams()
+      if (systolic) sp.set("s", systolic)
+      if (diastolic) sp.set("d", diastolic)
+      if (pulse) sp.set("p", pulse)
+      if (arm !== "left") sp.set("a", arm)
+      if (position !== "sitting") sp.set("pos", position)
+      if (notes) sp.set("n", notes)
+      const qs = sp.toString()
+      const newPath = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
+      window.history.replaceState(null, "", newPath)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [systolic, diastolic, pulse, arm, position, notes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -206,7 +225,7 @@ export default function RegistrarPage() {
         <div className="hidden md:block">
           <GlassCard className="p-6 lg:sticky lg:top-6 space-y-6" variant="elevated">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Clasificación en vivo
+              {t.registrar.clasificacionEnVivo}
             </p>
 
             {classification ? (
@@ -227,13 +246,13 @@ export default function RegistrarPage() {
                 </p>
 
                 <p className="text-center text-xs text-gray-500">
-                  Normal: &lt;120/80 mmHg
+                  {t.registrar.referenciaNormal}
                 </p>
               </>
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-400 text-sm">
-                  Ingresa sistólica y diastólica
+                  {t.registrar.ingresaValores}
                 </p>
               </div>
             )}

@@ -4,10 +4,13 @@ import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useParams, usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
+import { useTheme } from "next-themes"
 import { getTranslations } from "@/lib/translations"
 import { AnimatedBg } from "@/components/animated-bg"
 import { HeartLogo } from "@/components/heart-logo"
+import { Avatar } from "@/components/avatar"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import {
   Home,
   PlusCircle,
@@ -20,6 +23,9 @@ import {
   Languages,
   ChevronDown,
   ChevronUp,
+  Sun,
+  Moon,
+  Share2,
 } from "lucide-react"
 
 const navItems = [
@@ -44,6 +50,9 @@ export function AppLayout({
   const { data: session } = useSession()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -62,9 +71,23 @@ export function AppLayout({
 
   const toggleLang = () => {
     const newLang = lang === "es" ? "en" : "es"
-    const newPath = pathname.replace(`/${lang}`, `/${newLang}`)
+    const search = window.location.search
+    const newPath = pathname.replace(`/${lang}`, `/${newLang}`) + search
     document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000`
     window.location.href = newPath
+  }
+
+  const handleShare = async () => {
+    const text = session?.user
+      ? t.dashboard.compartirTexto.replace("{app}", t.app.name).replace("{url}", window.location.origin)
+      : t.dashboard.compartirTextoSin.replace("{app}", t.app.name).replace("{url}", window.location.origin)
+
+    if (navigator.share) {
+      await navigator.share({ title: t.app.name, text })
+    } else {
+      await navigator.clipboard.writeText(text)
+      toast.success(t.dashboard.linkCopiado)
+    }
   }
 
   const currentPath = pathname.split("/").pop() || ""
@@ -143,9 +166,11 @@ export function AppLayout({
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex w-full items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-rose-500 text-xs font-bold text-white shadow-sm">
-                {(session.user.name || session.user.email || "U").charAt(0).toUpperCase()}
-              </div>
+              <Avatar
+                email={session.user.email}
+                name={session.user.name || session.user.username}
+                size="sm"
+              />
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                   {session.user.name || session.user.email}
@@ -192,6 +217,22 @@ export function AppLayout({
             <span className="font-semibold text-sm">{t.app.name}</span>
           </div>
           <div className="flex items-center gap-1">
+            {mounted && (
+              <button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                aria-label={theme === "dark" ? t.configuracion.oscuro : t.configuracion.claro}
+              >
+                {theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              </button>
+            )}
+            <button
+              onClick={handleShare}
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              aria-label={t.dashboard.compartir}
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
             <button
               onClick={toggleLang}
               className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 hover:text-gray-700"
