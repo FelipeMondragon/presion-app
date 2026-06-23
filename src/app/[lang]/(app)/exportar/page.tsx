@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { useParams } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 import { getTranslations } from "@/lib/translations"
 import { Button } from "@/components/ui/button"
@@ -30,8 +31,16 @@ async function fetchData(dateFrom: string, dateTo: string) {
 
 export default function ExportarPage() {
   const params = useParams()
+  const router = useRouter()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
+  const { data: session } = useSession()
+
+  useEffect(() => {
+    if (session?.user?.role === "admin") {
+      router.replace(`/${lang}/panel`)
+    }
+  }, [session, router, lang])
 
   const [format, setFormat] = useState<string>("pdf")
   const [dateFrom, setDateFrom] = useState("")
@@ -193,7 +202,7 @@ export default function ExportarPage() {
           </div>
 
           <Button
-            className="w-full h-12 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/25 border-0"
+            variant="gradient" className="w-full h-12"
             disabled={loading}
             onClick={format === "pdf" ? exportToPDF : exportToExcel}
           >

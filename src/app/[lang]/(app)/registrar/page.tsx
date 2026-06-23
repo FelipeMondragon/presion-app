@@ -24,6 +24,12 @@ export default function RegistrarPage() {
   const { data: session } = useSession()
   const syncing = useRef(false)
 
+  useEffect(() => {
+    if (session?.user?.role === "admin") {
+      router.replace(`/${lang}/panel`)
+    }
+  }, [session, router, lang])
+
   const [systolic, setSystolic] = useState(searchParams.get("s") || "")
   const [diastolic, setDiastolic] = useState(searchParams.get("d") || "")
   const [pulse, setPulse] = useState(searchParams.get("p") || "")
@@ -260,7 +266,7 @@ export default function RegistrarPage() {
             <Button
               type="submit"
               form="registrar-form"
-              className="w-full h-14 text-lg bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/25 border-0"
+              variant="gradient" className="w-full h-14 text-lg"
               disabled={loading}
             >
               {loading ? (
@@ -284,7 +290,7 @@ export default function RegistrarPage() {
         <Button
           type="submit"
           form="registrar-form"
-          className="w-full h-14 text-lg bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/25 border-0"
+          variant="gradient" className="w-full h-14 text-lg"
           disabled={loading}
         >
           {loading ? (

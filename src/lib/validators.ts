@@ -101,6 +101,46 @@ export const signupApiSchema = z.object({
   securityAnswer: z.string().min(1, "La respuesta es requerida"),
 })
 
+export const createUserSchema = z.object({
+  email: z.string().email("Correo inválido"),
+  password: z.string().min(6, "Mínimo 6 caracteres"),
+  name: z.string().min(1, "El nombre es requerido").max(100),
+  username: z
+    .string()
+    .min(3, "Mínimo 3 caracteres")
+    .max(30, "Máximo 30 caracteres")
+    .regex(/^[a-zA-Z0-9_]+$/, "Solo letras, números y guión bajo"),
+  role: z.enum(["admin", "user"]).default("user"),
+})
+
+export const updateUserSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido").max(100).optional(),
+  username: z
+    .string()
+    .min(3, "Mínimo 3 caracteres")
+    .max(30, "Máximo 30 caracteres")
+    .regex(/^[a-zA-Z0-9_]+$/, "Solo letras, números y guión bajo")
+    .optional(),
+  email: z.string().email("Correo inválido").optional(),
+  role: z.enum(["admin", "user"]).optional(),
+  password: z.string().min(6, "Mínimo 6 caracteres").optional(),
+})
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido").max(100).optional(),
+})
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Contraseña actual requerida"),
+    newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  })
+
 export type LoginFormData = z.infer<typeof loginSchema>
 export type SignupFormData = z.infer<typeof signupSchema>
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>

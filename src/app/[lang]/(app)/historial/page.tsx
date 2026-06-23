@@ -1,21 +1,13 @@
 "use client"
 
 import { useEffect, useState, useDeferredValue, useMemo } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
 import { GlassCard } from "@/components/glass-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   LineChart,
   Line,
@@ -26,7 +18,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { Trash2, Loader2, BarChart3, List, ChevronLeft, ChevronRight } from "lucide-react"
+import { DataTable } from "@/components/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
+import { Trash2, Loader2, BarChart3, List } from "lucide-react"
 import { LabeledSelect } from "@/components/labeled-select"
 import { formatDate, formatDateShort } from "@/lib/utils"
 import type { Measurement } from "@/lib/types"
@@ -34,9 +28,16 @@ import { cn } from "@/lib/utils"
 
 export default function HistorialPage() {
   const params = useParams()
+  const router = useRouter()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
   const { data: session } = useSession()
+
+  useEffect(() => {
+    if (session?.user?.role === "admin") {
+      router.replace(`/${lang}/panel`)
+    }
+  }, [session, router, lang])
 
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,8 +45,6 @@ export default function HistorialPage() {
   const deferredFilter = useDeferredValue(filter)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [view, setView] = useState<"chart" | "list">("chart")
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
 
   useEffect(() => {
     let cancelled = false
@@ -90,17 +89,6 @@ export default function HistorialPage() {
     return measurements
   }, [measurements, deferredFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filteredMeasurements.length / PAGE_SIZE))
-
-  const paginatedMeasurements = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredMeasurements.slice(start, start + PAGE_SIZE)
-  }, [filteredMeasurements, page])
-
-  useEffect(() => {
-    setPage(1)
-  }, [filter])
-
   const handleDelete = async (id: string) => {
     if (!confirm(t.historial.eliminarConfirmacion)) return
     setDeleting(id)
@@ -116,6 +104,67 @@ export default function HistorialPage() {
     })
     return cache
   }, [filteredMeasurements])
+
+  const columns = useMemo<ColumnDef<Measurement>[]>(
+    () => [
+      {
+        accessorKey: "measured_at",
+        header: t.historial.fecha,
+        cell: ({ row }) => formatDate(row.original.measured_at, lang),
+      },
+      {
+        accessorKey: "systolic",
+        header: t.historial.sistolica,
+        cell: ({ row }) => {
+          const bp = bpCache[row.original.id]
+          return (
+            <Badge className={`${bp.bgMuted} ${bp.color} border-0 font-mono`}>
+              {row.original.systolic}
+            </Badge>
+          )
+        },
+      },
+      {
+        accessorKey: "diastolic",
+        header: t.historial.diastolica,
+        cell: ({ row }) => <span className="font-mono">{row.original.diastolic}</span>,
+      },
+      {
+        accessorKey: "pulse",
+        header: t.historial.pulso,
+        cell: ({ row }) => <span className="font-mono">{row.original.pulse || "-"}</span>,
+      },
+      {
+        accessorKey: "arm",
+        header: t.historial.brazo,
+        cell: ({ row }) => t.brazo[row.original.arm as keyof typeof t.brazo],
+        enableSorting: false,
+      },
+      {
+        accessorKey: "position",
+        header: t.historial.posicion,
+        cell: ({ row }) => t.posicion[row.original.position as keyof typeof t.posicion],
+        enableSorting: false,
+      },
+      {
+        id: "actions",
+        header: t.historial.acciones,
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleDelete(row.original.id)}
+            disabled={deleting === row.original.id}
+            className="text-gray-400 hover:text-red-500"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ),
+        enableSorting: false,
+      },
+    ],
+    [t, lang, bpCache, deleting, handleDelete]
+  )
 
   const chartData = [...filteredMeasurements]
     .reverse()
@@ -236,7 +285,7 @@ export default function HistorialPage() {
 
       {/* Tabla de mediciones */}
       {view === "list" && (
-        <GlassCard variant="subtle" className="p-0 overflow-hidden">
+        <GlassCard className="p-6">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -246,94 +295,11 @@ export default function HistorialPage() {
               {t.historial.sinMediciones}
             </div>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-gray-200/50 dark:border-gray-700/30">
-                      <TableHead>{t.historial.fecha}</TableHead>
-                      <TableHead>{t.historial.sistolica}</TableHead>
-                      <TableHead>{t.historial.diastolica}</TableHead>
-                      <TableHead>{t.historial.pulso}</TableHead>
-                      <TableHead className="hidden md:table-cell">
-                        {t.historial.brazo}
-                      </TableHead>
-                      <TableHead className="hidden md:table-cell">
-                        {t.historial.posicion}
-                      </TableHead>
-                      <TableHead className="w-12">{t.historial.acciones}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedMeasurements.map((m) => {
-                    const bp = bpCache[m.id]
-                    return (
-                      <TableRow key={m.id} className="border-gray-200/50 dark:border-gray-700/30">
-                        <TableCell className="whitespace-nowrap">
-                          {formatDate(m.measured_at, lang)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`${bp.bgMuted} ${bp.color} border-0 font-mono`}
-                          >
-                            {m.systolic}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          {m.diastolic}
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          {m.pulse || "-"}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell capitalize">
-                          {t.brazo[m.arm as keyof typeof t.brazo]}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell capitalize">
-                          {t.posicion[m.position as keyof typeof t.posicion]}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(m.id)}
-                            disabled={deleting === m.id}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 py-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="h-9"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="h-9"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            </>
+            <DataTable
+              columns={columns}
+              data={filteredMeasurements}
+              searchPlaceholder={t.historial.buscar ?? "Buscar..."}
+            />
           )}
         </GlassCard>
       )}

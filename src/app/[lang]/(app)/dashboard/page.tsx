@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
@@ -32,14 +32,21 @@ const CARD_BORDERS = ["border-green-500", "border-yellow-500", "border-amber-500
 
 export default function DashboardPage() {
   const params = useParams()
+  const router = useRouter()
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
+
+  const { data: session } = useSession()
+
+  useEffect(() => {
+    if (session?.user?.role === "admin") {
+      router.replace(`/${lang}/panel`)
+    }
+  }, [session, router, lang])
 
   const [lastReading, setLastReading] = useState<Measurement | null>(null)
   const [weeklyReadings, setWeeklyReadings] = useState<Measurement[]>([])
   const [loading, setLoading] = useState(true)
-
-  const { data: session } = useSession()
 
   useEffect(() => {
     let cancelled = false
@@ -166,7 +173,7 @@ export default function DashboardPage() {
             <Share2 className="h-4 w-4" />
           </Button>
           <Link href={`/${lang}/registrar`}>
-            <Button className="border-0 bg-gradient-to-r from-red-500 to-rose-600 shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700">
+            <Button variant="gradient">
               <PlusCircle className="mr-2 h-4 w-4" />
               {t.nav.registrar}
             </Button>
