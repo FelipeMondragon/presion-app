@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GlassCard } from "@/components/glass-card"
 import { toast } from "sonner"
+import { DataTable } from "@/components/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react"
 import type { User } from "@/lib/types"
 import {
@@ -139,6 +141,56 @@ export default function UsuariosPage() {
     fetch("/api/users").then(async (res) => { if (res.ok) setUsers(await res.json()) })
   }
 
+  const columns = useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: t.usuarios.nombre,
+        cell: ({ row }) => <span>{row.original.name || "—"}</span>,
+      },
+      {
+        accessorKey: "username",
+        header: t.usuarios.usuario,
+        cell: ({ row }) => <span className="text-gray-600 dark:text-gray-400">{row.original.username || "—"}</span>,
+      },
+      {
+        accessorKey: "email",
+        header: t.usuarios.email,
+      },
+      {
+        accessorKey: "role",
+        header: t.usuarios.rol,
+        cell: ({ row }) => (
+          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${row.original.role === "admin" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"}`}>
+            {row.original.role === "admin" ? t.usuarios.admin : t.usuarios.user}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: t.usuarios.acciones,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)} className="text-gray-400 hover:text-blue-500">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDelete(row.original)}
+              disabled={row.original.id === session?.user?.id}
+              className="text-gray-400 hover:text-red-500 disabled:opacity-30"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+        enableSorting: false,
+      },
+    ],
+    [t, session, openEdit, handleDelete]
+  )
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
@@ -147,7 +199,7 @@ export default function UsuariosPage() {
         </h1>
         <Button
           onClick={openCreate}
-          className="bg-gradient-to-r from-red-500 to-rose-600 shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700 border-0"
+          variant="gradient"
         >
           <Plus className="mr-2 h-4 w-4" />
           {t.usuarios.crear}
@@ -163,49 +215,11 @@ export default function UsuariosPage() {
         ) : users.length === 0 ? (
           <p className="text-center text-gray-400 py-8">{t.usuarios.sinUsuarios}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
-                  <th className="text-left py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t.usuarios.nombre}</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t.usuarios.usuario}</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t.usuarios.email}</th>
-                  <th className="text-left py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t.usuarios.rol}</th>
-                  <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t.usuarios.acciones}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                    <td className="py-3 px-2 text-gray-900 dark:text-gray-100">{user.name || "—"}</td>
-                    <td className="py-3 px-2 text-gray-600 dark:text-gray-400">{user.username || "—"}</td>
-                    <td className="py-3 px-2 text-gray-600 dark:text-gray-400">{user.email}</td>
-                    <td className="py-3 px-2">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${user.role === "admin" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"}`}>
-                        {user.role === "admin" ? t.usuarios.admin : t.usuarios.user}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(user)} className="text-gray-400 hover:text-blue-500">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(user)}
-                          disabled={user.id === session?.user?.id}
-                          className="text-gray-400 hover:text-red-500 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={columns}
+            data={users}
+            searchPlaceholder={t.usuarios.buscar ?? "Buscar..."}
+          />
         )}
       </GlassCard>
 
@@ -291,7 +305,7 @@ export default function UsuariosPage() {
             <Button
               onClick={handleSave}
               disabled={saving || (editingUser !== null && !adminPassword)}
-              className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg shadow-red-500/25 border-0"
+              variant="gradient" className="w-full"
             >
               {saving ? t.comun.cargando : t.comun.guardar}
             </Button>

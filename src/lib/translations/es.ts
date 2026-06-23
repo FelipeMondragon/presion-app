@@ -131,6 +131,7 @@ export const es = {
     graficoSistolica: "Presión sistólica",
     graficoDiastolica: "Presión diastólica",
     graficoPulso: "Pulso cardíaco",
+    buscar: "Buscar mediciones...",
   },
   exportar: {
     titulo: "Exportar datos",
@@ -171,6 +172,7 @@ export const es = {
     nuevaContrasena: "Nueva contraseña",
     confirmarNuevaContrasena: "Confirmar nueva contraseña",
     autorizacionRequerida: "Ingresá tu contraseña de administrador para autorizar cambios",
+    buscar: "Buscar usuarios...",
     error: "Error al guardar el usuario",
     exitoCrear: "Usuario creado correctamente",
     exitoEditar: "Usuario actualizado correctamente",
@@ -190,6 +192,7 @@ export const es = {
     mmhg: "mmHg",
     bpm: "bpm",
     sinMediciones: "No hay mediciones registradas",
+    buscar: "Buscar mediciones...",
   },
   configuracion: {
     titulo: "Configuración",
@@ -219,6 +222,12 @@ export const es = {
     cambiarContrasena: "Cambiar contraseña",
     guardarPerfil: "Guardar perfil",
     cambiandoContrasena: "Cambiando contraseña...",
+    cuenta: "Cuenta",
+    seguridad: "Seguridad",
+    notificaciones: "Notificaciones",
+    cuentaDesc: "Gestiona tu perfil, idioma y preferencias de visualización.",
+    seguridadDesc: "Actualiza tu contraseña para mantener tu cuenta segura.",
+    notificacionesDesc: "Configura los recordatorios para medir tu presión.",
   },
   clasificacion: {
     normal: "Normal",

@@ -173,7 +173,7 @@ export default function DashboardPage() {
             <Share2 className="h-4 w-4" />
           </Button>
           <Link href={`/${lang}/registrar`}>
-            <Button className="border-0 bg-gradient-to-r from-red-500 to-rose-600 shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700">
+            <Button variant="gradient">
               <PlusCircle className="mr-2 h-4 w-4" />
               {t.nav.registrar}
             </Button>

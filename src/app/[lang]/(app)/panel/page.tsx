@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { GlassCard } from "@/components/glass-card"
+import { DataTable } from "@/components/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { Loader2, Users, Activity, Heart } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 
@@ -33,6 +35,38 @@ export default function PanelPage() {
   const [measurements, setMeasurements] = useState<AdminMeasurement[]>([])
   const [userCount, setUserCount] = useState(0)
   const [loading, setLoading] = useState(true)
+
+  const panelColumns = useMemo<ColumnDef<AdminMeasurement>[]>(
+    () => [
+      {
+        accessorKey: "userName",
+        header: t.panel.usuario,
+        cell: ({ row }) => <span>{row.original.userName || row.original.userEmail}</span>,
+      },
+      {
+        accessorKey: "systolic",
+        header: t.panel.sistolica,
+        cell: ({ row }) => <span className="font-mono">{row.original.systolic}</span>,
+      },
+      {
+        accessorKey: "diastolic",
+        header: t.panel.diastolica,
+        cell: ({ row }) => <span className="font-mono">{row.original.diastolic}</span>,
+      },
+      {
+        accessorKey: "pulse",
+        header: t.panel.pulso,
+        cell: ({ row }) => <span className="font-mono">{row.original.pulse ?? "—"}</span>,
+      },
+      {
+        accessorFn: (row) => new Date(row.measuredAt).getTime(),
+        id: "measuredAt",
+        header: t.panel.fecha,
+        cell: ({ row }) => formatDate(row.original.measuredAt, lang, { dateStyle: "short", timeStyle: "short" }),
+      },
+    ],
+    [t, lang]
+  )
 
   useEffect(() => {
     if (!session) return
@@ -131,34 +165,12 @@ export default function PanelPage() {
         {measurements.length === 0 ? (
           <p className="py-8 text-center text-gray-400">{t.panel.sinMediciones}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
-                  <th className="whitespace-nowrap px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{t.panel.usuario}</th>
-                  <th className="whitespace-nowrap px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{t.panel.sistolica}</th>
-                  <th className="whitespace-nowrap px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{t.panel.diastolica}</th>
-                  <th className="whitespace-nowrap px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{t.panel.pulso}</th>
-                  <th className="whitespace-nowrap px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-400">{t.panel.fecha}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {measurements.slice(0, 100).map((m) => (
-                  <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/30">
-                    <td className="whitespace-nowrap px-2 py-3 text-gray-900 dark:text-gray-100">
-                      {m.userName || m.userEmail}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-3 text-gray-700 dark:text-gray-300">{m.systolic}</td>
-                    <td className="whitespace-nowrap px-2 py-3 text-gray-700 dark:text-gray-300">{m.diastolic}</td>
-                    <td className="whitespace-nowrap px-2 py-3 text-gray-700 dark:text-gray-300">{m.pulse ?? "—"}</td>
-                    <td className="whitespace-nowrap px-2 py-3 text-gray-500 dark:text-gray-400">
-                      {formatDate(m.measuredAt, lang, { dateStyle: "short", timeStyle: "short" })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={panelColumns}
+            data={measurements}
+            pageSize={25}
+            searchPlaceholder={t.panel.buscar ?? "Buscar..."}
+          />
         )}
       </GlassCard>
     </div>

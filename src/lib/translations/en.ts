@@ -131,6 +131,7 @@ export const en = {
     graficoSistolica: "Systolic pressure",
     graficoDiastolica: "Diastolic pressure",
     graficoPulso: "Heart rate",
+    buscar: "Search readings...",
   },
   exportar: {
     titulo: "Export data",
@@ -171,6 +172,7 @@ export const en = {
     nuevaContrasena: "New password",
     confirmarNuevaContrasena: "Confirm new password",
     autorizacionRequerida: "Enter your admin password to authorize changes",
+    buscar: "Search users...",
     error: "Error saving user",
     exitoCrear: "User created successfully",
     exitoEditar: "User updated successfully",
@@ -190,6 +192,7 @@ export const en = {
     mmhg: "mmHg",
     bpm: "bpm",
     sinMediciones: "No readings recorded",
+    buscar: "Search readings...",
   },
   configuracion: {
     titulo: "Settings",
@@ -219,6 +222,12 @@ export const en = {
     cambiarContrasena: "Change password",
     guardarPerfil: "Save profile",
     cambiandoContrasena: "Changing password...",
+    cuenta: "Account",
+    seguridad: "Security",
+    notificaciones: "Notifications",
+    cuentaDesc: "Manage your profile, language and display preferences.",
+    seguridadDesc: "Update your password to keep your account secure.",
+    notificacionesDesc: "Configure reminders to measure your blood pressure.",
   },
   clasificacion: {
     normal: "Normal",
