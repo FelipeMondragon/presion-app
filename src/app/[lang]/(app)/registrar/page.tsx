@@ -91,35 +91,42 @@ export default function RegistrarPage() {
     }
 
     setLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const res = await fetch("/api/measurements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systolic: result.data.systolic,
+          diastolic: result.data.diastolic,
+          pulse: result.data.pulse || null,
+          arm: result.data.arm,
+          position: result.data.position,
+          notes: result.data.notes || null,
+          measured_at: new Date().toISOString(),
+        }),
+        signal: ctrl.signal,
+      })
 
-    const res = await fetch("/api/measurements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systolic: result.data.systolic,
-        diastolic: result.data.diastolic,
-        pulse: result.data.pulse || null,
-        arm: result.data.arm,
-        position: result.data.position,
-        notes: result.data.notes || null,
-        measured_at: new Date().toISOString(),
-      }),
-    })
+      if (!res.ok) {
+        toast.error(t.registrar.error)
+        return
+      }
 
-    setLoading(false)
-
-    if (!res.ok) {
-      toast.error(t.registrar.error)
-      return
+      toast.success(t.registrar.exito)
+      setSystolic("")
+      setDiastolic("")
+      setPulse("")
+      setArm("left")
+      setPosition("sitting")
+      setNotes("")
+    } catch {
+      toast.error(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
     }
-
-    toast.success(t.registrar.exito)
-    setSystolic("")
-    setDiastolic("")
-    setPulse("")
-    setArm("left")
-    setPosition("sitting")
-    setNotes("")
   }
 
   return (

@@ -19,12 +19,12 @@ import { applyPlugin } from "jspdf-autotable"
 applyPlugin(jsPDF)
 import { formatDate } from "@/lib/utils"
 
-async function fetchData(dateFrom: string, dateTo: string) {
+async function fetchData(dateFrom: string, dateTo: string, signal?: AbortSignal) {
   const params = new URLSearchParams()
   if (dateFrom) params.set("from", dateFrom)
   if (dateTo) params.set("to", dateTo)
 
-  const res = await fetch(`/api/measurements?${params.toString()}`)
+  const res = await fetch(`/api/measurements?${params.toString()}`, { signal })
   if (!res.ok) return []
   return res.json()
 }
@@ -49,108 +49,121 @@ export default function ExportarPage() {
 
   const exportToPDF = async () => {
     setLoading(true)
-    const data = await fetchData(dateFrom, dateTo)
-    if (data.length === 0) {
-      toast.error(t.exportar.sinDatos)
-      setLoading(false)
-      return
-    }
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const data = await fetchData(dateFrom, dateTo, ctrl.signal)
+      if (data.length === 0) {
+        toast.error(t.exportar.sinDatos)
+        return
+      }
 
-    const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.setTextColor(220, 38, 38)
-    doc.text(t.app.name, 14, 20)
-    doc.setFontSize(10)
-    doc.setTextColor(100, 100, 100)
-    doc.text(
-      `${t.exportar.exportado} ${formatDate(new Date(), lang, { dateStyle: "long" })}`,
-      14,
-      28
-    )
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.setTextColor(220, 38, 38)
+      doc.text(t.app.name, 14, 20)
+      doc.setFontSize(10)
+      doc.setTextColor(100, 100, 100)
+      doc.text(
+        `${t.exportar.exportado} ${formatDate(new Date(), lang, { dateStyle: "long" })}`,
+        14,
+        28
+      )
 
-    const rows = data.map((m: Measurement) => [
-      formatDate(m.measured_at, lang),
-      m.systolic.toString(),
-      m.diastolic.toString(),
-      m.pulse?.toString() || "-",
-      m.arm === "left" ? t.brazo.left : t.brazo.right,
-      m.position === "sitting" ? t.posicion.sitting : m.position === "lying" ? t.posicion.lying : t.posicion.standing,
-      m.notes || "",
-    ])
+      const rows = data.map((m: Measurement) => [
+        formatDate(m.measured_at, lang),
+        m.systolic.toString(),
+        m.diastolic.toString(),
+        m.pulse?.toString() || "-",
+        m.arm === "left" ? t.brazo.left : t.brazo.right,
+        m.position === "sitting" ? t.posicion.sitting : m.position === "lying" ? t.posicion.lying : t.posicion.standing,
+        m.notes || "",
+      ])
 
-    doc.autoTable({
-      startY: 35,
-      head: [
-        [
-          t.historial.fecha,
-          t.historial.sistolica,
-          t.historial.diastolica,
-          t.historial.pulso,
-          t.historial.brazo,
-          t.historial.posicion,
-          "Notas",
+      doc.autoTable({
+        startY: 35,
+        head: [
+          [
+            t.historial.fecha,
+            t.historial.sistolica,
+            t.historial.diastolica,
+            t.historial.pulso,
+            t.historial.brazo,
+            t.historial.posicion,
+            "Notas",
+          ],
         ],
-      ],
-      body: rows,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [220, 38, 38] },
-    })
+        body: rows,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [220, 38, 38] },
+      })
 
-    // Add summary
-    const systolicArray = data.map((m: Measurement) => m.systolic)
-    const diastolicArray = data.map((m: Measurement) => m.diastolic)
-    const avgSystolic = Math.round(
-      systolicArray.reduce((a: number, b: number) => a + b, 0) /
-        systolicArray.length
-    )
-    const avgDiastolic = Math.round(
-      diastolicArray.reduce((a: number, b: number) => a + b, 0) /
-        diastolicArray.length
-    )
+      const systolicArray = data.map((m: Measurement) => m.systolic)
+      const diastolicArray = data.map((m: Measurement) => m.diastolic)
+      const avgSystolic = Math.round(
+        systolicArray.reduce((a: number, b: number) => a + b, 0) /
+          systolicArray.length
+      )
+      const avgDiastolic = Math.round(
+        diastolicArray.reduce((a: number, b: number) => a + b, 0) /
+          diastolicArray.length
+      )
 
-    doc.setFontSize(11)
-    doc.setTextColor(0, 0, 0)
-    doc.text(
-      `${t.exportar.promedio}: ${avgSystolic}/${avgDiastolic} ${t.dashboard.mmhg} - ${data.length} ${t.dashboard.registros}`,
-      14,
-      doc.lastAutoTable.finalY + 15
-    )
+      doc.setFontSize(11)
+      doc.setTextColor(0, 0, 0)
+      doc.text(
+        `${t.exportar.promedio}: ${avgSystolic}/${avgDiastolic} ${t.dashboard.mmhg} - ${data.length} ${t.dashboard.registros}`,
+        14,
+        doc.lastAutoTable.finalY + 15
+      )
 
-    doc.save(`presion-${new Date().toISOString().slice(0, 10)}.pdf`)
-    setLoading(false)
-    toast.success(t.exportar.exitoPDF)
+      doc.save(`presion-${new Date().toISOString().slice(0, 10)}.pdf`)
+      toast.success(t.exportar.exitoPDF)
+    } catch {
+      toast.error(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
+    }
   }
 
   const exportToExcel = async () => {
     setLoading(true)
-    const data = await fetchData(dateFrom, dateTo)
-    if (data.length === 0) {
-      toast.error(t.exportar.sinDatos)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const data = await fetchData(dateFrom, dateTo, ctrl.signal)
+      if (data.length === 0) {
+        toast.error(t.exportar.sinDatos)
+        return
+      }
+
+      const rows = data.map((m: Measurement) => ({
+        [t.historial.fecha]: `${new Date(m.measured_at).toISOString().slice(0, 10)} ${new Date(m.measured_at).toTimeString().slice(0, 5)}`,
+        [t.historial.sistolica]: m.systolic,
+        [t.historial.diastolica]: m.diastolic,
+        [t.historial.pulso]: m.pulse || "",
+        [t.historial.brazo]: m.arm === "left" ? t.brazo.left : t.brazo.right,
+        [t.historial.posicion]:
+          m.position === "sitting"
+            ? t.posicion.sitting
+            : m.position === "lying"
+            ? t.posicion.lying
+            : t.posicion.standing,
+        Notas: m.notes || "",
+      }))
+
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(rows)
+      XLSX.utils.book_append_sheet(wb, ws, "Mediciones")
+      XLSX.writeFile(wb, `presion-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      toast.success(t.exportar.exitoExcel)
+    } catch {
+      toast.error(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
       setLoading(false)
-      return
     }
-
-    const rows = data.map((m: Measurement) => ({
-      [t.historial.fecha]: `${new Date(m.measured_at).toISOString().slice(0, 10)} ${new Date(m.measured_at).toTimeString().slice(0, 5)}`,
-      [t.historial.sistolica]: m.systolic,
-      [t.historial.diastolica]: m.diastolic,
-      [t.historial.pulso]: m.pulse || "",
-      [t.historial.brazo]: m.arm === "left" ? t.brazo.left : t.brazo.right,
-      [t.historial.posicion]:
-        m.position === "sitting"
-          ? t.posicion.sitting
-          : m.position === "lying"
-          ? t.posicion.lying
-          : t.posicion.standing,
-      Notas: m.notes || "",
-    }))
-
-    const wb = XLSX.utils.book_new()
-    const ws = XLSX.utils.json_to_sheet(rows)
-    XLSX.utils.book_append_sheet(wb, ws, "Mediciones")
-    XLSX.writeFile(wb, `presion-${new Date().toISOString().slice(0, 10)}.xlsx`)
-    setLoading(false)
-    toast.success(t.exportar.exitoExcel)
   }
 
   return (

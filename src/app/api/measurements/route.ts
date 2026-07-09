@@ -6,6 +6,7 @@ import { eq, desc, and, gte, lte, count } from "drizzle-orm"
 import crypto from "crypto"
 import { measurementSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
 export const dynamic = "force-dynamic"
 
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`measurements:${ip}`, 60, 60_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
@@ -23,10 +24,23 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const dateFrom = searchParams.get("from")
   const dateTo = searchParams.get("to")
+
   const limitParam = searchParams.get("limit")
   const offsetParam = searchParams.get("offset")
-  const limit = limitParam ? parseInt(limitParam, 10) : null
-  const offset = offsetParam ? parseInt(offsetParam, 10) : 0
+  let limit = limitParam ? parseInt(limitParam, 10) : null
+  const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10)) : 0
+
+  if (limit !== null) {
+    if (isNaN(limit) || limit < 1) return NextResponse.json({ error: "Parámetro limit inválido" }, { status: 400 })
+    limit = Math.min(limit, 100)
+  }
+
+  if (dateFrom && isNaN(new Date(dateFrom).getTime())) {
+    return NextResponse.json({ error: "Fecha desde inválida" }, { status: 400 })
+  }
+  if (dateTo && isNaN(new Date(dateTo).getTime())) {
+    return NextResponse.json({ error: "Fecha hasta inválida" }, { status: 400 })
+  }
 
   const conditions = [eq(measurements.userId, session.user.id)]
   const isPaginationRequest = limit !== null
@@ -70,7 +84,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`measurements:${ip}`, 60, 60_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }

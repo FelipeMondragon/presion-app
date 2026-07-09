@@ -2,9 +2,11 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/db/client"
 import { users } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { eq, and, ne } from "drizzle-orm"
 import { hash, compare } from "bcryptjs"
 import { updateUserSchema, changePasswordSchema } from "@/lib/validators"
+import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
 export const dynamic = "force-dynamic"
 
@@ -15,6 +17,11 @@ export async function PUT(
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  }
+
+  const ip = getClientIp(request)
+  if (!checkRateLimit(`users-update:${ip}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
   const { id } = await params
@@ -86,6 +93,20 @@ export async function PUT(
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 })
     }
 
+    // Check uniqueness of email/username before updating
+    if (parsed.data.email) {
+      const [existing] = await db.select().from(users).where(and(eq(users.email, parsed.data.email), ne(users.id, id))).limit(1)
+      if (existing) {
+        return NextResponse.json({ error: "El correo ya está registrado" }, { status: 400 })
+      }
+    }
+    if (parsed.data.username) {
+      const [existing] = await db.select().from(users).where(and(eq(users.username, parsed.data.username), ne(users.id, id))).limit(1)
+      if (existing) {
+        return NextResponse.json({ error: "El nombre de usuario ya está en uso" }, { status: 400 })
+      }
+    }
+
     const updates: Record<string, string | null> = {}
     if (parsed.data.name !== undefined) updates.name = parsed.data.name
     if (parsed.data.username !== undefined) updates.username = parsed.data.username
@@ -96,8 +117,8 @@ export async function PUT(
       if (pw !== cpw) {
         return NextResponse.json({ error: "Las contraseñas no coinciden" }, { status: 400 })
       }
-      if (typeof pw !== "string" || pw.length < 6) {
-        return NextResponse.json({ error: "Mínimo 6 caracteres" }, { status: 400 })
+      if (typeof pw !== "string" || pw.length < 8) {
+        return NextResponse.json({ error: "Mínimo 8 caracteres" }, { status: 400 })
       }
       updates.passwordHash = await hash(pw, 10)
     }
@@ -110,7 +131,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
@@ -118,9 +139,33 @@ export async function DELETE(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
+  const ip = getClientIp(request)
+  if (!checkRateLimit(`delete-user:${ip}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
+  }
+
   const { id } = await params
   if (id === session.user.id) {
     return NextResponse.json({ error: "No podés eliminarte a vos mismo" }, { status: 400 })
+  }
+
+  let body: { adminPassword?: string }
+  try { body = await request.json() } catch {
+    return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 })
+  }
+
+  if (!body.adminPassword) {
+    return NextResponse.json({ error: "Contraseña de administrador requerida" }, { status: 400 })
+  }
+
+  const [adminUser] = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
+  if (!adminUser) {
+    return NextResponse.json({ error: "Administrador no encontrado" }, { status: 404 })
+  }
+
+  const valid = await compare(body.adminPassword, adminUser.passwordHash)
+  if (!valid) {
+    return NextResponse.json({ error: "Contraseña de administrador incorrecta" }, { status: 400 })
   }
 
   await db.delete(users).where(eq(users.id, id))

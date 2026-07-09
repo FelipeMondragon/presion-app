@@ -9,6 +9,7 @@ export const users = sqliteTable("users", {
   securityQuestion: text("security_question").notNull().default(""),
   securityAnswer: text("security_answer").notNull().default(""),
   role: text("role").notNull().default("user"),
+  passwordChangedAt: text("password_changed_at").notNull().$defaultFn(() => new Date().toISOString()),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 })
 

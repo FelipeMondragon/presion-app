@@ -6,9 +6,10 @@ import { users } from "@/db/schema"
 import { eq, or } from "drizzle-orm"
 import { signupApiSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`signup:${ip}`, 3, 600_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
@@ -32,15 +33,14 @@ export async function POST(request: Request) {
     .where(or(eq(users.email, email), eq(users.username, username)))
     .limit(1)
 
+  // ponytail: generic message to prevent email/username enumeration
   if (existing) {
-    if (existing.email === email) {
-      return NextResponse.json({ error: "El correo ya está registrado" }, { status: 400 })
-    }
-    return NextResponse.json({ error: "El nombre de usuario ya está en uso" }, { status: 400 })
+    return NextResponse.json({ error: "Correo o usuario ya registrado" }, { status: 400 })
   }
 
   const passwordHash = await hash(password, 10)
-  const securityAnswerHash = await hash(securityAnswer || "", 10)
+  // ponytail: normalise so "Firulais" == "firulais" on recovery
+  const securityAnswerHash = await hash((securityAnswer || "").trim().toLowerCase(), 10)
   const id = crypto.randomUUID()
 
   await db.insert(users).values({

@@ -7,6 +7,7 @@ import { hash } from "bcryptjs"
 import crypto from "crypto"
 import { createUserSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
 export const dynamic = "force-dynamic"
 
@@ -18,10 +19,15 @@ async function requireAdmin() {
   return session
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await requireAdmin()
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  }
+
+  const ip = getClientIp(request)
+  if (!checkRateLimit(`users-list:${ip}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
   const data = await db
@@ -45,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`users:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }

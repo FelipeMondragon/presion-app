@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import { ThemeProvider } from "next-themes"
-import { SessionProvider } from "@/components/session-provider"
+import { SessionProvider } from "next-auth/react"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 

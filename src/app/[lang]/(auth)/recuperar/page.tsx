@@ -40,24 +40,34 @@ export default function RecuperarPage() {
     }
 
     setLoading(true)
-    const res = await fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+        signal: ctrl.signal,
+      })
 
-    setLoading(false)
+      if (!res.ok) {
+        let data: any
+        try { data = await res.json() } catch { setError(t.auth.errorConexion); return }
+        setError(data?.error || t.auth.errorCredenciales)
+        return
+      }
 
-    if (!res.ok) {
-      const data = await res.json()
-      setError(data.error || t.auth.errorCredenciales)
-      return
+      let data: any
+      try { data = await res.json() } catch { setError(t.auth.errorConexion); return }
+      const qKey = data?.question as string
+      setQuestion(t.auth[qKey as keyof typeof t.auth] as string)
+      setStep(2)
+    } catch {
+      setError(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
     }
-
-    const data = await res.json()
-    const qKey = data.question as string
-    setQuestion(t.auth[qKey as keyof typeof t.auth] as string)
-    setStep(2)
   }
 
   const handleStep2 = async (e: React.FormEvent) => {
@@ -71,21 +81,30 @@ export default function RecuperarPage() {
     }
 
     setLoading(true)
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, answer }),
-    })
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, answer }),
+        signal: ctrl.signal,
+      })
 
-    setLoading(false)
+      if (!res.ok) {
+        let data: any
+        try { data = await res.json() } catch { setError(t.auth.errorConexion); return }
+        setError(data?.error || t.auth.respuestaIncorrecta)
+        return
+      }
 
-    if (!res.ok) {
-      const data = await res.json()
-      setError(data.error || t.auth.respuestaIncorrecta)
-      return
+      setStep(3)
+    } catch {
+      setError(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
     }
-
-    setStep(3)
   }
 
   const handleStep3 = async (e: React.FormEvent) => {
@@ -104,21 +123,30 @@ export default function RecuperarPage() {
     }
 
     setLoading(true)
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, answer, newPassword }),
-    })
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, answer, newPassword }),
+        signal: ctrl.signal,
+      })
 
-    setLoading(false)
+      if (!res.ok) {
+        let data: any
+        try { data = await res.json() } catch { setError(t.auth.errorConexion); return }
+        setError(data?.error || t.auth.errorRegistro)
+        return
+      }
 
-    if (!res.ok) {
-      const data = await res.json()
-      setError(data.error || t.auth.errorRegistro)
-      return
+      router.push(`/${lang}/login?contrasenaCambiada=true`)
+    } catch {
+      setError(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
     }
-
-    router.push(`/${lang}/login?contrasenaCambiada=true`)
   }
 
   return (

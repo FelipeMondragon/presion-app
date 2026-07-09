@@ -3,16 +3,22 @@ import { createClient } from "@libsql/client"
 import { drizzle } from "drizzle-orm/libsql"
 import { eq } from "drizzle-orm"
 import { hash } from "bcryptjs"
+import crypto from "crypto"
 import { users, measurements, reminderSettings } from "./schema"
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export async function seed(db: any) {
   const existing = await db.select().from(users).where(eq(users.email, "test@example.com")).limit(1)
-  if (existing.length > 0) return
+    if (existing.length > 0) {
+    console.log("⚠️ Database already has data, skipping seed.")
+    return
+    }
 
-  console.log("🌱 Seeding database...")
+  const isProd = process.env.NODE_ENV === "production"
 
+  // ponytail: dev-only fixed password so admin is always usable locally
+  const adminPassword = isProd ? crypto.randomBytes(12).toString("hex") : "admin1234"
   const adminId = crypto.randomUUID()
-  const adminPasswordHash = await hash("admin1234", 12)
+  const adminPasswordHash = await hash(adminPassword, 12)
 
   await db.insert(users).values({
     id: adminId,
@@ -23,74 +29,91 @@ export async function seed(db: any) {
     role: "admin",
   })
 
-  const userId = crypto.randomUUID()
-  const passwordHash = await hash("test1234", 12)
-  const securityAnswerHash = await hash("Firulais", 10)
+  if (!isProd) console.log("\n🔑 Admin login → admin@example.com / " + adminPassword + "\n")
 
-  await db.insert(users).values({
-    id: userId,
-    email: "test@example.com",
-    passwordHash,
-    name: "Paciente de prueba",
-    username: "testuser",
-    securityQuestion: "pregunta1",
-    securityAnswer: securityAnswerHash,
-  })
+  if (!isProd) {
+    const userId = crypto.randomUUID()
+    const passwordHash = await hash("test1234", 12)
+    const securityAnswerHash = await hash("firulais", 10)
 
-  const now = new Date()
-  const measurementsData: (typeof measurements.$inferInsert)[] = []
+    await db.insert(users).values({
+      id: userId,
+      email: "test@example.com",
+      passwordHash,
+      name: "Paciente de prueba",
+      username: "testuser",
+      // ponytail: key stored, translated client-side in recuperar/page.tsx
+      securityQuestion: "pregunta1",
+      securityAnswer: securityAnswerHash,
+    })
 
-  for (let i = 0; i < 30; i++) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
+    const now = new Date()
+    const measurementsData: (typeof measurements.$inferInsert)[] = []
 
-    const isMorning = i % 2 === 0
-    date.setHours(
-      isMorning ? 8 + Math.floor(Math.random() * 3) : 18 + Math.floor(Math.random() * 3),
-      Math.floor(Math.random() * 60),
-    )
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(now)
+      date.setDate(date.getDate() - i)
 
-    const baseSystolic = 125 + Math.sin(i * 0.3) * 10
-    const baseDiastolic = 80 + Math.sin(i * 0.3 + 1) * 8
-    const basePulse = 70 + Math.sin(i * 0.2 + 2) * 8
+      const isMorning = i % 2 === 0
+      date.setHours(
+        isMorning ? 8 + Math.floor(Math.random() * 3) : 18 + Math.floor(Math.random() * 3),
+        Math.floor(Math.random() * 60),
+      )
 
-    const systolic = Math.round(baseSystolic + (Math.random() - 0.5) * 14)
-    const diastolic = Math.round(baseDiastolic + (Math.random() - 0.5) * 10)
-    const pulse = Math.round(basePulse + (Math.random() - 0.5) * 12)
+      const baseSystolic = 125 + Math.sin(i * 0.3) * 10
+      const baseDiastolic = 80 + Math.sin(i * 0.3 + 1) * 8
+      const basePulse = 70 + Math.sin(i * 0.2 + 2) * 8
 
-    const arm = Math.random() > 0.5 ? "left" : "right"
-    const position = (["sitting", "standing", "lying"] as const)[Math.floor(Math.random() * 3)]
+      const systolic = Math.round(baseSystolic + (Math.random() - 0.5) * 14)
+      const diastolic = Math.round(baseDiastolic + (Math.random() - 0.5) * 10)
+      const pulse = Math.round(basePulse + (Math.random() - 0.5) * 12)
 
-    const notes =
-      i === 0 ? "Después del café" :
-      i === 3 ? "Sintió mareo leve" :
-      i === 15 ? "Después de caminar" :
-      null
+      const arm = Math.random() > 0.5 ? "left" : "right"
+      const position = (["sitting", "standing", "lying"] as const)[Math.floor(Math.random() * 3)]
 
-    measurementsData.push({
-      id: crypto.randomUUID(),
+      const notes =
+        i === 0 ? "Después del café" :
+        i === 3 ? "Sintió mareo leve" :
+        i === 15 ? "Después de caminar" :
+        null
+
+      measurementsData.push({
+        id: crypto.randomUUID(),
+        userId,
+        systolic,
+        diastolic,
+        pulse: pulse > 0 ? pulse : undefined,
+        arm,
+        position,
+        notes,
+        measuredAt: date.toISOString(),
+      })
+    }
+
+    // ponytail: individual inserts — Turso batch limit is ~200 params total, 30 rows × 10 cols exceeds it
+    for (const m of measurementsData) await db.insert(measurements).values(m)
+
+    await db.insert(reminderSettings).values({
       userId,
-      systolic,
-      diastolic,
-      pulse: pulse > 0 ? pulse : undefined,
-      arm,
-      position,
-      notes,
-      measuredAt: date.toISOString(),
+      times: JSON.stringify(["08:00", "20:00"]),
+      emailEnabled: true,
+      browserEnabled: true,
+      timezone: "America/Chihuahua",
     })
   }
 
-  await db.insert(measurements).values(measurementsData)
-
-  await db.insert(reminderSettings).values({
-    userId,
-    times: JSON.stringify(["08:00", "20:00"]),
-    emailEnabled: true,
-    browserEnabled: true,
-    timezone: "America/Chihuahua",
-  })
-
-  console.log("✅ Seed data created (admin@example.com / admin1234, test@example.com / test1234)")
+  console.log("")
+  console.log("=".repeat(50))
+  console.log("✅ Seeding completed")
+  console.log("")
+  console.log(`🔑 Admin credentials:`)
+  console.log(`   Email: admin@example.com`)
+  console.log(`   Password: ${adminPassword}`)
+  if (!isProd) {
+    console.log("👤 Test:  test@example.com / test1234")
+  }
+  console.log("=".repeat(50))
+  console.log("")
 }
 
 const isMainScript = process.argv[1]?.replace(/\\/g, "/").endsWith("seed.ts")
@@ -122,7 +145,7 @@ if (isMainScript) {
   seed(db)
     .then(() => client.close())
     .catch((err) => {
-      console.error("❌ Seeding failed:", err)
+      console.error("❌ Seeding failed:", err.message)
       process.exit(1)
     })
 }

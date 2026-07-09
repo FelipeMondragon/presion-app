@@ -16,7 +16,6 @@ export function NotificationManager({ lang }: { lang?: string }) {
     let intervalId: ReturnType<typeof setInterval>
     let lastTimes: string[] = []
     let browserEnabled = false
-    let first = true
 
     async function check() {
       if (cancelled) return
@@ -25,14 +24,13 @@ export function NotificationManager({ lang }: { lang?: string }) {
         const data = await res.json()
         if (!data) return
 
-        if (first && data.browser_enabled && Notification.permission === "default") {
+        if (data.browser_enabled && Notification.permission === "default") {
           const perm = await Notification.requestPermission()
-          browserEnabled = perm === "granted" && data.browser_enabled
+          browserEnabled = perm === "granted"
         } else {
           browserEnabled = data.browser_enabled && Notification.permission === "granted"
         }
         lastTimes = data.times
-        first = false
       } catch {
         return
       }

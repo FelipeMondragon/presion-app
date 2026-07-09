@@ -89,7 +89,7 @@ export default function UsuariosPage() {
           setSaving(false)
           return
         }
-        if (newPassword.length < 6) {
+        if (newPassword.length < 8) {
           toast.error(t.auth.minimoCaracteres)
           setSaving(false)
           return
@@ -131,7 +131,13 @@ export default function UsuariosPage() {
 
   const handleDelete = async (user: User) => {
     if (!confirm(t.usuarios.eliminarConfirmacion)) return
-    const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" })
+    const adminPassword = prompt("Ingresá tu contraseña de administrador para eliminar:")
+    if (!adminPassword) return
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminPassword }),
+    })
     if (!res.ok) {
       const data = await res.json()
       toast.error(data.error || t.usuarios.error)

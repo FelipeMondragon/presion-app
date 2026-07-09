@@ -157,7 +157,7 @@ export default function ConfiguracionPage() {
       toast.error(t.auth.contrasenasNoCoinciden)
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       toast.error(t.auth.minimoCaracteres)
       return
     }
