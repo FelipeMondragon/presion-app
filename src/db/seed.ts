@@ -15,8 +15,16 @@ export async function seed(db: any) {
 
   const isProd = process.env.NODE_ENV === "production"
 
-  // ponytail: dev-only fixed password so admin is always usable locally
-  const adminPassword = isProd ? crypto.randomBytes(12).toString("hex") : "admin1234"
+  // ponytail: dev-only fixed password, prod requires ADMIN_PASSWORD env var
+  let adminPassword: string
+  if (isProd) {
+    if (!process.env.ADMIN_PASSWORD) {
+      throw new Error("ADMIN_PASSWORD env var is required in production")
+    }
+    adminPassword = process.env.ADMIN_PASSWORD
+  } else {
+    adminPassword = "admin1234"
+  }
   const adminId = crypto.randomUUID()
   const adminPasswordHash = await hash(adminPassword, 12)
 
