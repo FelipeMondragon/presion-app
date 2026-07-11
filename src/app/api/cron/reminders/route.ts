@@ -52,13 +52,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const now = new Date()
-  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-
   const settings = await db
     .select({
       userId: reminderSettings.userId,
       email: users.email,
+      timezone: reminderSettings.timezone,
       times: reminderSettings.times,
     })
     .from(reminderSettings)
@@ -68,6 +66,13 @@ export async function GET(request: Request) {
   const matching = settings.filter((s) => {
     try {
       const times: string[] = JSON.parse(s.times)
+      // ponytail: use user's timezone, not server UTC
+      const currentTime = new Intl.DateTimeFormat("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: s.timezone || "UTC",
+      }).format(new Date())
       return times.includes(currentTime)
     } catch {
       return false
@@ -97,12 +102,20 @@ export async function GET(request: Request) {
     )
   }
 
-  const results = []
-  for (const setting of matching) {
-    if (!setting.email) continue
-
-    const ok = await sendReminder(setting.email, REMINDER_FROM, transporter)
-    results.push({ email: setting.email, status: ok ? "sent" : "failed" })
+  // ponytail: send in parallel batches of 5 to avoid maxDuration timeout
+  const results: { email: string; status: string }[] = []
+  for (let i = 0; i < matching.length; i += 5) {
+    const batch = matching.slice(i, i + 5)
+    const batchResults = await Promise.all(
+      batch.map(async (s) => {
+        if (!s.email) return null
+        const ok = await sendReminder(s.email, REMINDER_FROM, transporter)
+        return { email: s.email, status: ok ? "sent" : "failed" }
+      })
+    )
+    for (const r of batchResults) {
+      if (r) results.push(r)
+    }
   }
 
   return NextResponse.json(

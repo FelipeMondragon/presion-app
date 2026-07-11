@@ -27,6 +27,7 @@ import {
   Moon,
   Share2,
   LayoutDashboard,
+  Users,
 } from "lucide-react"
 
 function getNavItems(role?: string) {
@@ -34,7 +35,7 @@ function getNavItems(role?: string) {
   if (role === "admin") {
     return [
       { href: "panel", icon: LayoutDashboard, key: "panel" },
-      { href: "usuarios", icon: Settings, key: "usuarios" },
+      { href: "usuarios", icon: Users, key: "usuarios" },
       { href: "configuracion", icon: Settings, key: "configuracion" },
     ]
   }

@@ -48,22 +48,28 @@ export async function proxy(request: NextRequest) {
     console.log("[proxy] getToken error", { pathname, hasSecret: !!secret, hasCookie: !!cookieValue })
   }
 
-  if (pathname.startsWith(`/${locale}/login`) || pathname.startsWith(`/${locale}/signup`)) {
-    const isLoggedIn = !!token
-    if (isLoggedIn) {
+  const isAuthPage = pathname.match(/^\/(es|en)\/(login|signup|recuperar)/)
+  if (isAuthPage) {
+    if (!!token) {
       request.nextUrl.pathname = `/${locale}/dashboard`
       return NextResponse.redirect(request.nextUrl)
     }
     return NextResponse.next({ request })
   }
 
-  const isAppRoute = pathname.match(/^\/(es|en)\/(dashboard|registrar|historial|exportar|configuracion)/)
+  const isAppRoute = pathname.match(/^\/(es|en)\/(dashboard|registrar|historial|exportar|configuracion|panel|usuarios)/)
   if (isAppRoute) {
-    const isLoggedIn = !!token
-    if (!isLoggedIn) {
+    if (!token) {
       request.nextUrl.pathname = `/${locale}/login`
       return NextResponse.redirect(request.nextUrl)
     }
+
+    const isAdminRoute = pathname.match(/^\/(es|en)\/(panel|usuarios)/)
+    if (isAdminRoute && token.role !== "admin") {
+      request.nextUrl.pathname = `/${locale}/dashboard`
+      return NextResponse.redirect(request.nextUrl)
+    }
+
     return NextResponse.next({ request })
   }
 

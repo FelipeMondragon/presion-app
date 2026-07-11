@@ -11,22 +11,11 @@ import { FloatingInput } from "@/components/floating-input"
 import { Loader2, Eye, EyeOff, CheckCircle, ArrowLeft, ChevronRight } from "lucide-react"
 import { signupSchema } from "@/lib/validators"
 import { cn } from "@/lib/utils"
-
-const SECURITY_QUESTIONS = [
-  "pregunta1",
-  "pregunta2",
-  "pregunta3",
-  "pregunta4",
-  "pregunta5",
-] as const
+import { SECURITY_QUESTIONS } from "@/lib/security-questions"
 
 interface StepDef {
   title: string
   description: string
-}
-
-const STEP_INFO = {
-  key: ["info", "seguridad", "recuperacion"] as const,
 }
 
 export default function SignupPage() {
@@ -76,7 +65,7 @@ export default function SignupPage() {
         setError(t.auth.completarCampos)
         return false
       }
-      if (password.length < 6) { setError(t.auth.minimoCaracteres); return false }
+      if (password.length < 8) { setError(t.auth.minimoCaracteres); return false }
       if (password !== confirmPassword) { setError(t.auth.contrasenasNoCoinciden); return false }
     }
     if (step === 3) {
@@ -112,21 +101,31 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name, username, securityQuestion, securityAnswer }),
-    })
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30_000)
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name, username, securityQuestion, securityAnswer }),
+        signal: ctrl.signal,
+      })
 
-    if (!res.ok) {
-      const data = await res.json()
-      setError(data.error || t.auth.errorRegistro)
+      if (!res.ok) {
+        let data: any
+        try { data = await res.json() } catch {}
+        setError(data?.error || t.auth.errorRegistro)
+        return
+      }
+
+      router.push(`/${lang}/login?registrado=true`)
+      router.refresh()
+    } catch {
+      setError(t.auth.errorConexion)
+    } finally {
+      clearTimeout(timer)
       setLoading(false)
-      return
     }
-
-    router.push(`/${lang}/login?registrado=true`)
-    router.refresh()
   }
 
   return (
@@ -212,7 +211,7 @@ export default function SignupPage() {
                   onClick={handleNext}
                   className="w-full h-12 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-sm font-medium text-white shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700"
                 >
-                  {t.comun.si} <ChevronRight className="ml-1 h-4 w-4" />
+                  {t.auth.siguiente} <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -281,7 +280,7 @@ export default function SignupPage() {
                     onClick={handleNext}
                     className="flex-1 h-12 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-sm font-medium text-white shadow-lg shadow-red-500/25 hover:from-red-600 hover:to-rose-700"
                   >
-                    {t.comun.si} <ChevronRight className="ml-1 h-4 w-4" />
+                    {t.auth.siguiente} <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
               </div>

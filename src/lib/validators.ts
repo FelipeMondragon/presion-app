@@ -28,17 +28,15 @@ export const measurementSchema = z.object({
   measured_at: z.string().optional(),
 })
 
-export type MeasurementFormData = z.infer<typeof measurementSchema>
-
 export const loginSchema = z.object({
   email: z.string().email("Correo inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
+  password: z.string().min(8, "Mínimo 8 caracteres"),
 })
 
 export const signupSchema = z
   .object({
     email: z.string().email("Correo inválido"),
-    password: z.string().min(6, "Mínimo 6 caracteres"),
+    password: z.string().min(8, "Mínimo 8 caracteres"),
     confirmPassword: z.string(),
     name: z.string().min(1, "El nombre es requerido").max(100),
     username: z
@@ -62,7 +60,7 @@ export const resetPasswordSchema = z
   .object({
     email: z.string().email("Correo inválido"),
     answer: z.string().min(1, "La respuesta es requerida"),
-    newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+    newPassword: z.string().min(8, "Mínimo 8 caracteres"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -73,7 +71,7 @@ export const resetPasswordSchema = z
 export const resetApiSchema = z.object({
   email: z.string().email("Correo inválido"),
   answer: z.string().min(1, "La respuesta es requerida"),
-  newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+  newPassword: z.string().min(8, "Mínimo 8 caracteres"),
 })
 
 export const verifyAnswerSchema = z.object({
@@ -81,8 +79,10 @@ export const verifyAnswerSchema = z.object({
   answer: z.string().min(1, "La respuesta es requerida"),
 })
 
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/
+
 export const reminderSettingsSchema = z.object({
-  times: z.array(z.string()).optional(),
+  times: z.array(z.string().regex(timePattern, "Formato de hora inválido (HH:MM)")).optional(),
   email_enabled: z.boolean().optional(),
   browser_enabled: z.boolean().optional(),
   timezone: z.string().optional(),
@@ -90,7 +90,7 @@ export const reminderSettingsSchema = z.object({
 
 export const signupApiSchema = z.object({
   email: z.string().email("Correo inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
+  password: z.string().min(8, "Mínimo 8 caracteres"),
   name: z.string().min(1, "El nombre es requerido").max(100),
   username: z
     .string()
@@ -103,7 +103,7 @@ export const signupApiSchema = z.object({
 
 export const createUserSchema = z.object({
   email: z.string().email("Correo inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
+  password: z.string().min(8, "Mínimo 8 caracteres"),
   name: z.string().min(1, "El nombre es requerido").max(100),
   username: z
     .string()
@@ -123,7 +123,7 @@ export const updateUserSchema = z.object({
     .optional(),
   email: z.string().email("Correo inválido").optional(),
   role: z.enum(["admin", "user"]).optional(),
-  password: z.string().min(6, "Mínimo 6 caracteres").optional(),
+  password: z.string().min(8, "Mínimo 8 caracteres").optional(),
 })
 
 export const updateProfileSchema = z.object({
@@ -133,7 +133,7 @@ export const updateProfileSchema = z.object({
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Contraseña actual requerida"),
-    newPassword: z.string().min(6, "Mínimo 6 caracteres"),
+    newPassword: z.string().min(8, "Mínimo 8 caracteres"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -141,7 +141,3 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   })
 
-export type LoginFormData = z.infer<typeof loginSchema>
-export type SignupFormData = z.infer<typeof signupSchema>
-export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
-export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>

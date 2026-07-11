@@ -66,7 +66,8 @@ export default function LoginPage() {
         return
       }
 
-      window.location.href = `/${lang}/dashboard`
+      router.push(`/${lang}/dashboard`)
+      router.refresh()
     } catch {
       setError(t.auth.errorCredenciales)
       setLoading(false)

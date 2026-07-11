@@ -5,11 +5,12 @@ import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { resetApiSchema, resetPasswordSchema, verifyAnswerSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
 const GENERIC_ERROR = "Correo o respuesta inválidos"
 
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`reset-pw:${ip}`, 5, 600_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
@@ -38,7 +39,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 })
   }
 
-  const isValid = await compare(answer, user.securityAnswer)
+  // ponytail: normalise to match signup (trim + lowercase)
+  const normalizedAnswer = (answer ?? "").trim().toLowerCase()
+  const isValid = await compare(normalizedAnswer, user.securityAnswer)
   if (!isValid) {
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 })
   }

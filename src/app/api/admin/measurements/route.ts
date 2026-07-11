@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { db } from "@/db/client"
 import { measurements, users } from "@/db/schema"
 import { eq, desc, and, gte, lte, count } from "drizzle-orm"
+import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
 export const dynamic = "force-dynamic"
 
@@ -10,6 +12,11 @@ export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id || session.user.role !== "admin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  }
+
+  const ip = getClientIp(request)
+  if (!checkRateLimit(`admin-measurements:${ip}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
   const { searchParams } = new URL(request.url)

@@ -5,11 +5,17 @@ import { reminderSettings } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { reminderSettingsSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  }
+
+  const ip = getClientIp(request)
+  if (!checkRateLimit(`reminder-settings:${ip}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
   const [settings] = await db
@@ -48,7 +54,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`reminder:${session.user.id}`, 30, 60_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }

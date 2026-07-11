@@ -4,9 +4,11 @@ import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { forgotPasswordSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { getClientIp } from "@/lib/ip"
+import { SECURITY_QUESTIONS } from "@/lib/security-questions"
 
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown"
+  const ip = getClientIp(request)
   if (!checkRateLimit(`forgot-pw:${ip}`, 3, 600_000)) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
@@ -29,9 +31,11 @@ export async function POST(request: Request) {
     .where(eq(users.email, email))
     .limit(1)
 
-  // ponytail: always return 200 + a question so attackers can't enumerate accounts
+  // ponytail: return random question for non-existent users so attackers can't enumerate accounts
+  const questions = SECURITY_QUESTIONS
+  const fallbackQuestion = questions[Math.floor(Math.random() * questions.length)]
   return NextResponse.json(
-    { question: user?.securityQuestion ?? "mascota" },
+    { question: user?.securityQuestion ?? fallbackQuestion },
     { headers: { "Cache-Control": "no-store" } },
   )
 }
