@@ -7,12 +7,6 @@ import crypto from "crypto"
 import { users, measurements, reminderSettings } from "./schema"
 
 export async function seed(db: any) {
-  const existing = await db.select().from(users).where(eq(users.email, "test@example.com")).limit(1)
-    if (existing.length > 0) {
-    console.log("⚠️ Database already has data, skipping seed.")
-    return
-    }
-
   const isProd = process.env.NODE_ENV === "production"
 
   // ponytail: dev-only fixed password, prod requires ADMIN_PASSWORD env var
@@ -25,21 +19,28 @@ export async function seed(db: any) {
   } else {
     adminPassword = "admin1234"
   }
-  const adminId = crypto.randomUUID()
-  const adminPasswordHash = await hash(adminPassword, 12)
 
-  await db.insert(users).values({
-    id: adminId,
-    email: "admin@example.com",
-    passwordHash: adminPasswordHash,
-    name: "Administrador",
-    username: "admin",
-    role: "admin",
-  })
-
-  if (!isProd) console.log("\n🔑 Admin login → admin@example.com / " + adminPassword + "\n")
+  const adminExists = await db.select().from(users).where(eq(users.email, "admin@example.com")).limit(1)
+  if (adminExists.length === 0) {
+    const adminPasswordHash = await hash(adminPassword, 12)
+    await db.insert(users).values({
+      id: crypto.randomUUID(),
+      email: "admin@example.com",
+      passwordHash: adminPasswordHash,
+      name: "Administrador",
+      username: "admin",
+      role: "admin",
+    })
+  }
 
   if (!isProd) {
+    const existing = await db.select().from(users).where(eq(users.email, "test@example.com")).limit(1)
+    if (existing.length > 0) {
+      console.log("⚠️ Dev data already exists, skipping test user.")
+      return
+    }
+
+    console.log("\n🔑 Admin login → admin@example.com / " + adminPassword + "\n")
     const userId = crypto.randomUUID()
     const passwordHash = await hash("test1234", 12)
     const securityAnswerHash = await hash("firulais", 10)
@@ -126,7 +127,7 @@ export async function seed(db: any) {
 
 const isMainScript = process.argv[1]?.replace(/\\/g, "/").endsWith("seed.ts")
 if (isMainScript) {
-  const envPath = ".env.local"
+  const envPath = process.env.NODE_ENV === "production" ? ".env.production" : ".env.local"
   try {
     const content = readFileSync(envPath, "utf-8")
     for (const line of content.split("\n")) {
