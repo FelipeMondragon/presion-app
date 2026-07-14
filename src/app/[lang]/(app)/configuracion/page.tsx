@@ -208,7 +208,7 @@ export default function ConfiguracionPage() {
             )}
           >
             <Icon className="h-4 w-4" />
-            <span className="hidden xs:inline">{t.configuracion[id as keyof typeof t.configuracion]}</span>
+            <span className="text-[10px] leading-tight">{t.configuracion[id as keyof typeof t.configuracion]}</span>
           </button>
         ))}
       </div>

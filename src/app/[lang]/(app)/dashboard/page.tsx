@@ -173,7 +173,7 @@ export default function DashboardPage() {
             <Share2 className="h-4 w-4" />
           </Button>
           <Link href={`/${lang}/registrar`}>
-            <Button variant="gradient">
+            <Button variant="gradient" className="h-10 sm:h-9">
               <PlusCircle className="mr-2 h-4 w-4" />
               {t.nav.registrar}
             </Button>
@@ -215,30 +215,32 @@ export default function DashboardPage() {
             </div>
 
             {/* SIS / DIA display */}
-            <div className="flex items-start gap-2 sm:gap-3">
-              <div className={`flex-1 rounded-xl border-l-4 ${CARD_BORDERS[spectrumIndex]} bg-white/50 p-3 dark:bg-gray-900/50`}>
-                <p className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-gray-100">
-                  {lastReading.systolic}
-                </p>
-                <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
-                  {t.dashboard.sis}
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+              <div className="flex gap-2 sm:gap-3">
+                <div className={`flex-1 sm:flex-initial rounded-xl border-l-4 ${CARD_BORDERS[spectrumIndex]} bg-white/50 p-2 sm:p-3 dark:bg-gray-900/50 min-w-0`}>
+                  <p className="text-2xl sm:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                    {lastReading.systolic}
+                  </p>
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
+                    {t.dashboard.sis}
+                  </p>
+                </div>
+
+                <span className="mt-2 sm:mt-3 text-xl text-gray-300 dark:text-gray-600 self-start shrink-0">/</span>
+
+                <div className={`flex-1 sm:flex-initial rounded-xl border-l-4 ${CARD_BORDERS[spectrumIndex]} bg-white/50 p-2 sm:p-3 dark:bg-gray-900/50 min-w-0`}>
+                  <p className="text-2xl sm:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                    {lastReading.diastolic}
+                  </p>
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
+                    {t.dashboard.dia}
+                  </p>
+                </div>
               </div>
 
-              <span className="mt-3 text-xl text-gray-300 dark:text-gray-600">/</span>
-
-              <div className={`flex-1 rounded-xl border-l-4 ${CARD_BORDERS[spectrumIndex]} bg-white/50 p-3 dark:bg-gray-900/50`}>
-                <p className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-gray-100">
-                  {lastReading.diastolic}
-                </p>
-                <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400">
-                  {t.dashboard.dia}
-                </p>
-              </div>
-
-              <div className="mt-1 shrink-0 text-right">
-                <p className="text-sm text-gray-400">{t.dashboard.mmhg}</p>
-                <Badge className={`mt-1 ${lastClassification.bgColor} ${lastClassification.color} border-0`}>
+              <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 sm:mt-1 shrink-0">
+                <p className="text-xs sm:text-sm text-gray-400">{t.dashboard.mmhg}</p>
+                <Badge className={`${lastClassification.bgColor} ${lastClassification.color} border-0`}>
                   {t.clasificacion[lastClassification.classification]}
                 </Badge>
               </div>
@@ -287,7 +289,7 @@ export default function DashboardPage() {
             <HeartLogo size="xl" animated />
             <p className="mt-4">{t.dashboard.sinMediciones}</p>
             <Link href={`/${lang}/registrar`}>
-              <Button variant="outline" className="mt-4">
+              <Button variant="outline" size="lg" className="mt-4">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {t.nav.registrar}
               </Button>
@@ -345,8 +347,8 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4" />
             {t.dashboard.tendencias}
           </p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 min-h-[200px]">
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <LineChart data={weeklyChartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                 <XAxis dataKey="date" className="text-xs text-gray-400" />

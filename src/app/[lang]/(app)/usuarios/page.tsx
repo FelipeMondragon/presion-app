@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
@@ -129,7 +129,7 @@ export default function UsuariosPage() {
     fetch("/api/users").then(async (res) => { if (res.ok) setUsers(await res.json()) })
   }
 
-  const handleDelete = async (user: User) => {
+  const handleDelete = useCallback(async (user: User) => {
     if (!confirm(t.usuarios.eliminarConfirmacion)) return
     const adminPassword = prompt("Ingresá tu contraseña de administrador para eliminar:")
     if (!adminPassword) return
@@ -145,7 +145,7 @@ export default function UsuariosPage() {
     }
     toast.success(t.usuarios.exitoEliminar)
     fetch("/api/users").then(async (res) => { if (res.ok) setUsers(await res.json()) })
-  }
+  }, [t, setUsers])
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [

@@ -35,7 +35,6 @@ export async function proxy(request: NextRequest) {
   const locale = pathname.split("/")[1] || DEFAULT_LOCALE
 
   const secret = process.env.NEXTAUTH_SECRET
-  const cookieValue = request.cookies.get(SESSION_COOKIE)?.value?.slice(0, 20)
 
   let token = null
   try {
@@ -45,7 +44,7 @@ export async function proxy(request: NextRequest) {
       secureCookie: process.env.NODE_ENV === "production",
     })
   } catch {
-    console.log("[proxy] getToken error", { pathname, hasSecret: !!secret, hasCookie: !!cookieValue })
+    console.log("[proxy] getToken error", { pathname, hasSecret: !!secret })
   }
 
   const isAuthPage = pathname.match(/^\/(es|en)\/(login|signup|recuperar)/)

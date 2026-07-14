@@ -140,7 +140,7 @@ export default function RegistrarPage() {
         <GlassCard className="p-6" variant="elevated">
           <form id="registrar-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Presión — grandes */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FloatingInput
                 id="systolic"
                 label={t.registrar.sistolica}
