@@ -3,20 +3,10 @@ import { db } from "@/db/client"
 import { reminderSettings, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import nodemailer from "nodemailer"
+import { createTransporter } from "@/lib/mail"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
-
-function createTransporter() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: parseInt(SMTP_PORT || "587"),
-    secure: SMTP_PORT === "465",
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  })
-}
 
 async function sendReminder(to: string, from: string, transporter: nodemailer.Transporter): Promise<boolean> {
   try {

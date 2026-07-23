@@ -13,7 +13,8 @@ export function NotificationManager({ lang }: { lang?: string }) {
     if (typeof Notification === "undefined") return
 
     let cancelled = false
-    let intervalId: ReturnType<typeof setInterval>
+    let tickId: ReturnType<typeof setInterval>
+    let refreshId: ReturnType<typeof setInterval>
     let lastTimes: string[] = []
     let browserEnabled = false
 
@@ -41,9 +42,7 @@ export function NotificationManager({ lang }: { lang?: string }) {
 
       const now = new Date()
       const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-      const min = now.getMinutes()
 
-      // Only check on exact minute boundaries to avoid duplicates
       if (lastTimes.includes(currentTime)) {
         new Notification(t.app.name, {
           body: t.dashboard.notificarHora,
@@ -52,18 +51,17 @@ export function NotificationManager({ lang }: { lang?: string }) {
       }
     }
 
-    // Initial setup
     check().then(() => {
-      // Then check every minute
-      intervalId = setInterval(tick, 60_000)
-      // Refresh settings every 5 min
-      setInterval(check, 300_000)
+      tickId = setInterval(tick, 60_000)
+      refreshId = setInterval(check, 300_000)
     })
 
     return () => {
       cancelled = true
-      if (intervalId) clearInterval(intervalId)
+      clearInterval(tickId)
+      clearInterval(refreshId)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id])
 
   return null

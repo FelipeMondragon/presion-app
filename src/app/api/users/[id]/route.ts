@@ -66,7 +66,7 @@ export async function PUT(
     }
 
     const passwordHash = await hash(parsed.data.newPassword, 10)
-    await db.update(users).set({ passwordHash }).where(eq(users.id, id))
+    await db.update(users).set({ passwordHash, passwordChangedAt: new Date().toISOString() }).where(eq(users.id, id))
     return NextResponse.json({ success: true })
   }
 

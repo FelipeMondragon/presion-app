@@ -182,7 +182,7 @@ export default function HistorialPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           {t.historial.titulo}
         </h1>
-        <div className="w-40">
+        <div className="w-full sm:w-40">
           <LabeledSelect
             value={filter}
             onValueChange={setFilter}
@@ -209,7 +209,7 @@ export default function HistorialPage() {
           )}
         >
           <BarChart3 className="h-4 w-4" />
-          {t.historial.graficoSistolica.replace(" sistólica", "")} {/* fallback label */}
+          {t.historial.grafico}
         </button>
         <button
           onClick={() => setView("list")}
@@ -228,28 +228,36 @@ export default function HistorialPage() {
       {/* Gráfico */}
       {view === "chart" && chartData.length > 1 && (
         <GlassCard className="p-6">
-          <div className="h-[500px]">
-            <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={300}>
+          <div className="h-64 sm:h-[400px] lg:h-[500px] min-h-[200px]">
+            <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={200} aspect={1.6}>
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 10 }}
                   stroke="#9ca3af"
+                  interval="preserveStartEnd"
                 />
                 <YAxis
-                  domain={[0, "auto"]}
-                  tick={{ fontSize: 12 }}
+                  domain={["dataMin - 20", "dataMax + 10"]}
+                  tick={{ fontSize: 10 }}
                   stroke="#9ca3af"
                 />
-                <Tooltip />
-                <Legend />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "0.5rem",
+                    fontSize: "0.875rem",
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
                 <Line
                   type="monotone"
                   dataKey="sistolica"
                   stroke="#ef4444"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{ r: 3 }}
                   name={t.historial.graficoSistolica}
                 />
                 <Line
@@ -257,7 +265,7 @@ export default function HistorialPage() {
                   dataKey="diastolica"
                   stroke="#3b82f6"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{ r: 3 }}
                   name={t.historial.graficoDiastolica}
                 />
                 {chartData.some((d) => d.pulso) && (
@@ -266,7 +274,7 @@ export default function HistorialPage() {
                     dataKey="pulso"
                     stroke="#10b981"
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={{ r: 2 }}
                     name={t.historial.graficoPulso}
                   />
                 )}

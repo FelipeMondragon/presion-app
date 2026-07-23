@@ -150,12 +150,22 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "cv11", "ss01", "tnum";
+    touch-action: manipulation;
   }
   html {
     @apply font-sans;
   }
   h1, h2, h3 {
     letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }
 
