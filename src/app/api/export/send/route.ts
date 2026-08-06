@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { auth } from "@/lib/auth"
 import nodemailer from "nodemailer"
 import { createTransporter } from "@/lib/mail"
+import { checkRateLimit } from "@/lib/rate-limiter"
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024
+const patientNameSchema = z.string().max(100).refine((s) => !/[\r\n]/.test(s), { message: "Invalid name" })
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -9,13 +14,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  if (!checkRateLimit(`export-send:${session.user.id}`, 5, 600_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+  }
+
   const formData = await request.formData()
   const file = formData.get("file") as File | null
-  const doctorEmail = formData.get("email") as string | null
-  const patientName = formData.get("patientName") as string | null
+  const doctorEmailRaw = formData.get("email") as string | null
+  const patientNameRaw = formData.get("patientName") as string | null
 
-  if (!file || !doctorEmail) {
+  if (!file || !doctorEmailRaw) {
     return NextResponse.json({ error: "Missing file or email" }, { status: 400 })
+  }
+
+  const emailParsed = z.string().email().safeParse(doctorEmailRaw)
+  if (!emailParsed.success) {
+    return NextResponse.json({ error: "Invalid email" }, { status: 400 })
+  }
+  const doctorEmail = emailParsed.data
+
+  if (file.size > MAX_FILE_BYTES) {
+    return NextResponse.json({ error: "File too large" }, { status: 400 })
+  }
+
+  let patientName: string | null = null
+  if (patientNameRaw) {
+    const parsedName = patientNameSchema.safeParse(patientNameRaw)
+    if (!parsedName.success) {
+      return NextResponse.json({ error: "Invalid patient name" }, { status: 400 })
+    }
+    patientName = parsedName.data
   }
 
   const transporter = createTransporter()
@@ -25,6 +53,7 @@ export async function POST(request: Request) {
 
   const senderEmail = process.env.REMINDER_FROM || session.user.email
   const buffer = Buffer.from(await file.arrayBuffer())
+  const filename = `reporte-presion-${new Date().toISOString().slice(0, 10)}.pdf`
 
   try {
     await transporter.sendMail({
@@ -38,7 +67,7 @@ export async function POST(request: Request) {
         "",
         "— Presión App",
       ].join("\n"),
-      attachments: [{ filename: file.name, content: buffer }],
+      attachments: [{ filename, content: buffer }],
     })
     return NextResponse.json({ sent: true })
   } catch {

@@ -51,11 +51,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ verified: true }, { headers: { "Cache-Control": "no-store" } })
   }
 
-  const passwordHash = await hash(newPassword, 10)
+  const passwordHash = await hash(newPassword, 12)
 
   await db
     .update(users)
-    .set({ passwordHash })
+    .set({ passwordHash, passwordChangedAt: new Date().toISOString() })
     .where(eq(users.id, user.id))
 
   return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } })

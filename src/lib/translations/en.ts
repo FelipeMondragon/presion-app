@@ -112,6 +112,10 @@ export const en = {
     clasificacionEnVivo: "Live classification",
     ingresaValores: "Enter systolic and diastolic",
     referenciaNormal: "Normal: <120/80 mmHg",
+    referenciaTabla: {
+      titulo: "Reference values",
+      categoria: "Category",
+    },
   },
   historial: {
     titulo: "History",

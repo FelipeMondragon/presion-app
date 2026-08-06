@@ -123,7 +123,7 @@ export function AppLayout({
     const newLang = lang === "es" ? "en" : "es"
     const search = window.location.search
     const newPath = pathname.replace(`/${lang}`, `/${newLang}`) + search
-    document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000`
+    document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000;SameSite=Lax${location.protocol === "https:" ? ";Secure" : ""}`
     window.location.href = newPath
   }
 
@@ -158,7 +158,7 @@ export function AppLayout({
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed top-0 bottom-14 left-0 z-50 flex w-72 flex-col bg-white shadow-2xl transition-transform duration-300 dark:bg-gray-900",
+          "fixed top-0 bottom-14 sm:bottom-0 left-0 z-50 flex w-72 flex-col bg-white shadow-2xl transition-transform duration-300 dark:bg-gray-900",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

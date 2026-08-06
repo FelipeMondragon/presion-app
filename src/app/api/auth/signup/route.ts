@@ -38,9 +38,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Correo o usuario ya registrado" }, { status: 400 })
   }
 
-  const passwordHash = await hash(password, 10)
+  const passwordHash = await hash(password, 12)
   // ponytail: normalise so "Firulais" == "firulais" on recovery
-  const securityAnswerHash = await hash((securityAnswer || "").trim().toLowerCase(), 10)
+  const securityAnswerHash = await hash((securityAnswer || "").trim().toLowerCase(), 12)
   const id = crypto.randomUUID()
 
   await db.insert(users).values({

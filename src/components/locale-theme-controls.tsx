@@ -24,7 +24,7 @@ export function LocaleThemeControls() {
 
   const toggleLang = () => {
     const newLang = lang === "es" ? "en" : "es"
-    document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000`
+    document.cookie = `NEXT_LOCALE=${newLang};path=/;max-age=31536000;SameSite=Lax${location.protocol === "https:" ? ";Secure" : ""}`
     window.location.href = pathname.replace(`/${lang}`, `/${newLang}`)
   }
 
