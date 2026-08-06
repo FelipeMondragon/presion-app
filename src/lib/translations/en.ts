@@ -84,6 +84,7 @@ export const en = {
     compartirTextoLectura: "Last reading: {sis}/{dia} mmHg.",
     sistolicaShort: "Systolic",
     diastolicaShort: "Diastolic",
+    sinRegistros: "No readings on this day",
     spectrumElevada: "Elevated",
     spectrumCrisis: "Crisis",
   },
@@ -138,6 +139,8 @@ export const en = {
     graficoSistolica: "Systolic pressure",
     graficoDiastolica: "Diastolic pressure",
     graficoPulso: "Heart rate",
+    metricaPresion: "Pressure",
+    metricaPulso: "Pulse",
     buscar: "Search readings...",
   },
   exportar: {
