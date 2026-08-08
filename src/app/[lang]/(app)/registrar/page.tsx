@@ -5,7 +5,9 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getTranslations } from "@/lib/translations"
 import { classifyBP } from "@/lib/bp-classifier"
+import { BP_RANGES } from "@/lib/bp-ranges"
 import { measurementSchema } from "@/lib/validators"
+import { cn } from "@/lib/utils"
 import { FloatingInput } from "@/components/floating-input"
 import { GlassCard } from "@/components/glass-card"
 import { SegmentedControl } from "@/components/segmented-control"
@@ -258,9 +260,6 @@ export default function RegistrarPage() {
                   {t.clasificacion[classification.classification]}
                 </p>
 
-                <p className="text-center text-xs text-gray-500">
-                  {t.registrar.referenciaNormal}
-                </p>
               </>
             ) : (
               <div className="text-center py-8">
@@ -269,6 +268,54 @@ export default function RegistrarPage() {
                 </p>
               </div>
             )}
+
+            {/* Reference values table */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t.registrar.referenciaTabla.titulo}
+              </p>
+              <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800/50">
+                      <th className="px-2 py-1.5 text-left font-medium text-gray-500">
+                        {t.registrar.referenciaTabla.categoria}
+                      </th>
+                      <th className="px-2 py-1.5 text-right font-medium text-gray-500">
+                        {t.dashboard.sis}
+                      </th>
+                      <th className="px-2 py-1.5 text-right font-medium text-gray-500">
+                        {t.dashboard.dia}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {BP_RANGES.map((r) => {
+                      const isActive = classification?.classification === r.classification
+                      return (
+                        <tr
+                          key={r.classification}
+                          className={cn(
+                            "border-t border-gray-100 dark:border-gray-800 transition-colors",
+                            isActive && r.bgColor
+                          )}
+                        >
+                          <td className={cn("px-2 py-1.5 font-medium", isActive ? r.color : "text-gray-700 dark:text-gray-300")}>
+                            {t.clasificacion[r.classification]}
+                          </td>
+                          <td className={cn("px-2 py-1.5 text-right font-mono", isActive ? r.color : "text-gray-600 dark:text-gray-400")}>
+                            {r.sistolica}
+                          </td>
+                          <td className={cn("px-2 py-1.5 text-right font-mono", isActive ? r.color : "text-gray-600 dark:text-gray-400")}>
+                            {r.diastolica}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
             <Button
               type="submit"

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { timingSafeEqual } from "crypto"
 import { db } from "@/db/client"
 import { reminderSettings, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
@@ -37,8 +38,13 @@ async function sendReminder(to: string, from: string, transporter: nodemailer.Tr
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization")
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const expected = `Bearer ${secret}`
+  const received = request.headers.get("authorization") ?? ""
+  if (received.length !== expected.length || !timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

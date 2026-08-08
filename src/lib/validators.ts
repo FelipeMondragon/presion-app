@@ -85,7 +85,14 @@ export const reminderSettingsSchema = z.object({
   times: z.array(z.string().regex(timePattern, "Formato de hora inválido (HH:MM)")).optional(),
   email_enabled: z.boolean().optional(),
   browser_enabled: z.boolean().optional(),
-  timezone: z.string().optional(),
+  timezone: z.string().refine((tz) => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz })
+      return true
+    } catch {
+      return false
+    }
+  }, "Zona horaria inválida").optional(),
 })
 
 export const signupApiSchema = z.object({

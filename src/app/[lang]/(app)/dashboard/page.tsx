@@ -19,16 +19,61 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts"
 import { PlusCircle, Heart, Activity, TrendingUp, Share2 } from "lucide-react"
 import Link from "next/link"
-import { formatDate, formatDateShort, cn } from "@/lib/utils"
+import { formatDate, cn } from "@/lib/utils"
+import { ChartTooltip, type ChartTooltipEntry } from "@/components/chart-tooltip"
 import type { Measurement } from "@/lib/types"
 
 const CLASSIFICATION_ORDER = ["normal", "elevada", "hipertensionGrado1", "hipertensionGrado2", "crisisHipertensiva"] as const
 const SPECTRUM_BG = ["bg-green-400", "bg-yellow-400", "bg-amber-400", "bg-orange-400", "bg-red-400"]
 const CARD_BORDERS = ["border-green-500", "border-yellow-500", "border-amber-500", "border-orange-500", "border-red-500"]
+
+const CLASSIFICATION_HEX: Record<string, string> = {
+  normal: "#22c55e",
+  elevada: "#eab308",
+  hipertensionGrado1: "#f59e0b",
+  hipertensionGrado2: "#f97316",
+  crisisHipertensiva: "#ef4444",
+}
+
+function localDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+function weekdayShort(date: Date, lang: string): string {
+  return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-MX", { weekday: "short" })
+    .format(date)
+    .replace(".", "")
+}
+
+function ClassificationDot(props: {
+  cx?: number
+  cy?: number
+  payload?: { classification?: string; latest?: boolean }
+}) {
+  const { cx, cy, payload } = props
+  if (typeof cx !== "number" || typeof cy !== "number") return null
+  const cls = payload?.classification
+  const color = cls ? CLASSIFICATION_HEX[cls] : "#d1d5db"
+  return (
+    <g>
+      {payload?.latest && <circle cx={cx} cy={cy} r={7} fill={color} opacity={0.25} />}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={payload?.latest ? 4.5 : 3}
+        fill={color}
+        stroke="#fff"
+        strokeWidth={1.5}
+      />
+    </g>
+  )
+}
 
 export default function DashboardPage() {
   const params = useParams()
@@ -36,7 +81,7 @@ export default function DashboardPage() {
   const lang = (params.lang as string) || "es"
   const t = getTranslations(lang)
 
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
 
   useEffect(() => {
     if (session?.user?.role === "admin") {
@@ -52,28 +97,32 @@ export default function DashboardPage() {
     let cancelled = false
 
     async function loadData() {
-      if (!session?.user?.id) return
       setLoading(true)
+      try {
+        const res = await fetch("/api/measurements")
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = (await res.json()) as Measurement[]
 
-      const res = await fetch("/api/measurements")
-      const data: Measurement[] = await res.json()
-
-      if (!cancelled) {
-        const weekAgo = new Date()
-        weekAgo.setDate(weekAgo.getDate() - 7)
-
-        setLastReading(data[0] || null)
-        setWeeklyReadings(
-          data.filter((m) => new Date(m.measured_at) >= weekAgo)
-        )
+        if (!cancelled && Array.isArray(data)) {
+          const weekAgo = new Date()
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          setLastReading(data[0] || null)
+          setWeeklyReadings(data.filter((m) => new Date(m.measured_at) >= weekAgo))
+        }
+      } catch {
+        if (!cancelled) {
+          setLastReading(null)
+          setWeeklyReadings([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      if (!cancelled) setLoading(false)
     }
 
-    loadData()
+    if (status === "authenticated" && session?.user?.id) loadData()
+
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
+  }, [session, status])
 
   const avgSystolic = weeklyReadings.length
     ? Math.round(
@@ -104,36 +153,87 @@ export default function DashboardPage() {
     : -1
   const avgClassification =
     avgSystolic > 0 ? classifyBP(avgSystolic, avgDiastolic) : null
+  const avgSpectrumIndex = avgClassification
+    ? CLASSIFICATION_ORDER.indexOf(avgClassification.classification)
+    : -1
 
-  const sistolicaKey = t.dashboard.sistolicaShort
-  const diastolicaKey = t.dashboard.diastolicaShort
+  const renderWeeklyTooltip = (point: Record<string, unknown> | undefined, entries: ChartTooltipEntry[]) => {
+    const date = point?.date as Date | undefined
+    const classification = point?.classification as ReturnType<typeof classifyBP> | undefined
+    const count = point?.count as number | undefined
+    return (
+      <>
+        <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          {date ? formatDate(date, lang, { dateStyle: "medium" }) : ""}
+        </p>
+        {entries.length === 0 ? (
+          <p className="text-sm text-gray-400">{t.dashboard.sinRegistros}</p>
+        ) : (
+          <div className="space-y-1">
+            {entries.map((e) => (
+              <p key={e.name} className="flex items-center gap-2 text-sm">
+                <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
+                <span className="text-gray-500 dark:text-gray-400">{e.name}</span>
+                <span className="ml-auto pl-4 font-mono font-semibold text-gray-900 dark:text-gray-100">
+                  {e.value} mmHg
+                </span>
+              </p>
+            ))}
+          </div>
+        )}
+        {classification && entries.length > 0 && (
+          <div className="mt-2 flex items-center gap-2">
+            <Badge className={`${classification.bgColor} ${classification.color} border-0`}>
+              {t.clasificacion[classification.classification]}
+            </Badge>
+            {typeof count === "number" && (
+              <span className="text-[11px] text-gray-400">{count} {t.dashboard.registros}</span>
+            )}
+          </div>
+        )}
+      </>
+    )
+  }
 
   const weeklyChartData = useMemo(() => {
     if (weeklyReadings.length === 0) return []
 
-    const days: { date: string; readings: Measurement[] }[] = []
+    const days: { key: string; date: Date; readings: Measurement[] }[] = []
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split("T")[0]
-      days.push({ date: dateStr, readings: [] })
+      days.push({ key: localDateKey(d), date: d, readings: [] })
     }
-
+    const byKey = new Map(days.map((d) => [d.key, d]))
     for (const m of weeklyReadings) {
-      const dateStr = m.measured_at.split("T")[0]
-      const day = days.find((d) => d.date === dateStr)
-      if (day) day.readings.push(m)
+      const key = localDateKey(new Date(m.measured_at))
+      byKey.get(key)?.readings.push(m)
     }
 
-    return days.map((d) => {
+    const points = days.map((d) => {
       const r = d.readings
+      const sys = r.length ? Math.round(r.reduce((s, m) => s + m.systolic, 0) / r.length) : null
+      const dia = r.length ? Math.round(r.reduce((s, m) => s + m.diastolic, 0) / r.length) : null
+      const classification = sys != null && dia != null ? classifyBP(sys, dia) : null
       return {
-        date: formatDateShort(d.date, lang),
-        [sistolicaKey]: r.length ? Math.round(r.reduce((s, m) => s + m.systolic, 0) / r.length) : undefined,
-        [diastolicaKey]: r.length ? Math.round(r.reduce((s, m) => s + m.diastolic, 0) / r.length) : undefined,
+        day: weekdayShort(d.date, lang),
+        date: d.date,
+        count: r.length,
+        sys,
+        dia,
+        classification,
+        latest: false,
       }
     })
-  }, [weeklyReadings, lang, sistolicaKey, diastolicaKey])
+
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (points[i].count > 0) {
+        points[i].latest = true
+        break
+      }
+    }
+    return points
+  }, [weeklyReadings, lang])
 
   const handleShare = async () => {
     const text = lastReading
@@ -343,26 +443,59 @@ export default function DashboardPage() {
       {/* Weekly trend chart */}
       {weeklyChartData.length > 0 && (
         <GlassCard className="p-5">
-          <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
-            <TrendingUp className="h-4 w-4" />
-            {t.dashboard.tendencias}
-          </p>
-          <div className="h-64 min-h-[200px]">
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+              <TrendingUp className="h-4 w-4" />
+              {t.dashboard.tendencias}
+            </p>
+            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
+                {t.dashboard.sistolicaShort}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6]" />
+                {t.dashboard.diastolicaShort}
+              </span>
+            </div>
+          </div>
+
+          {/* Spectrum */}
+          {avgClassification && (
+            <div className="mb-3">
+              <div className="relative">
+                <div className="flex h-1.5 overflow-hidden rounded-full">
+                  {SPECTRUM_BG.map((bg, i) => (
+                    <div key={i} className={cn("flex-1", bg)} />
+                  ))}
+                </div>
+                {avgSpectrumIndex >= 0 && (
+                  <div
+                    className="absolute -top-1 h-3.5 w-3.5 -translate-x-1/2 rounded-full border-2 border-white bg-gray-800 shadow-sm dark:border-gray-900 dark:bg-gray-200"
+                    style={{ left: `${(avgSpectrumIndex * 20) + 10}%` }}
+                  />
+                )}
+              </div>
+              <div className="mt-0.5 flex justify-between text-[10px] text-gray-400">
+                {[t.clasificacion.normal, t.dashboard.spectrumElevada, "H1", "H2", t.dashboard.spectrumCrisis].map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="h-56 sm:h-64">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={weeklyChartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                <XAxis dataKey="date" className="text-xs text-gray-400" />
-                <YAxis className="text-xs text-gray-400" domain={["dataMin - 10", "dataMax + 10"]} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200 dark:stroke-gray-700" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} />
+                <YAxis width={42} tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} domain={["dataMin - 10", "dataMax + 10"]} />
                 <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "0.5rem",
-                  }}
+                  content={<ChartTooltip render={renderWeeklyTooltip} />}
+                  cursor={{ stroke: "#9ca3af", strokeDasharray: "4 4", strokeOpacity: 0.4 }}
                 />
-                <Legend />
-                <Line type="monotone" dataKey={sistolicaKey} stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey={diastolicaKey} stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="sys" name={t.dashboard.sistolicaShort} stroke="#ef4444" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls={false} />
+                <Line type="monotone" dataKey="dia" name={t.dashboard.diastolicaShort} stroke="#3b82f6" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

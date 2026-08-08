@@ -9,15 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GlassCard } from "@/components/glass-card"
-import { LabeledSelect } from "@/components/labeled-select"
 import { toast } from "sonner"
 import type { Measurement } from "@/lib/types"
-import { FileDown, Share2, Send, Loader2 } from "lucide-react"
+import { FileDown, FileSpreadsheet, FileText, Share2, Send, Loader2 } from "lucide-react"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
 import { applyPlugin } from "jspdf-autotable"
 applyPlugin(jsPDF)
-import { formatDate } from "@/lib/utils"
+import { formatDate, cn } from "@/lib/utils"
 import { classifyBP, type BPClassification } from "@/lib/bp-classifier"
 
 async function fetchData(dateFrom: string, dateTo: string, signal?: AbortSignal) {
@@ -435,49 +434,89 @@ export default function ExportarPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-        {t.exportar.titulo}
-      </h1>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          {t.exportar.titulo}
+        </h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t.exportar.reportTitle}
+        </p>
+      </div>
 
-      <GlassCard className="p-6" variant="elevated">
-        <div className="space-y-4">
-          <LabeledSelect
-            value={format}
-            onValueChange={setFormat}
-            label={t.exportar.formato}
-            options={[
-              { value: "pdf", label: t.exportar.pdf },
-              { value: "excel", label: t.exportar.excel },
-            ]}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="dateFrom" className="text-sm text-gray-500 dark:text-gray-400">
-                {t.exportar.desde}
-              </Label>
-              <Input
-                id="dateFrom" type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="glass-subtle border-gray-200 dark:border-gray-600"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateTo" className="text-sm text-gray-500 dark:text-gray-400">
-                {t.exportar.hasta}
-              </Label>
-              <Input
-                id="dateTo" type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="glass-subtle border-gray-200 dark:border-gray-600"
-              />
+      <GlassCard className="p-4 sm:p-6" variant="elevated">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              {t.exportar.formato}
+            </Label>
+            <div
+              role="radiogroup"
+              aria-label={t.exportar.formato}
+              className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-gray-800/70"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={format === "pdf"}
+                onClick={() => setFormat("pdf")}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-colors",
+                  format === "pdf"
+                    ? "bg-white text-red-600 shadow-sm dark:bg-gray-900 dark:text-red-400"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                )}
+              >
+                <FileText className="h-4 w-4" />
+                {t.exportar.pdf}
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={format === "excel"}
+                onClick={() => setFormat("excel")}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-colors",
+                  format === "excel"
+                    ? "bg-white text-red-600 shadow-sm dark:bg-gray-900 dark:text-red-400"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                )}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                {t.exportar.excel}
+              </button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="doctorEmail" className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.exportar.periodo}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="dateFrom" className="text-xs text-gray-400 dark:text-gray-500">
+                  {t.exportar.desde}
+                </Label>
+                <Input
+                  id="dateFrom" type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-11 glass-subtle border-gray-200 dark:border-gray-600"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="dateTo" className="text-xs text-gray-400 dark:text-gray-500">
+                  {t.exportar.hasta}
+                </Label>
+                <Input
+                  id="dateTo" type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="h-11 glass-subtle border-gray-200 dark:border-gray-600"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="doctorEmail" className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {t.exportar.enviarMedico}
             </Label>
             <Input
@@ -489,15 +528,18 @@ export default function ExportarPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button variant="gradient" className="flex-1 sm:h-10 sm:rounded-lg h-12 rounded-full text-base sm:text-sm" disabled={!!loading} onClick={handleDownload}>
+            <Button variant="gradient" className="w-full min-h-12 px-4 sm:h-11 rounded-2xl text-base sm:text-sm" disabled={!!loading} onClick={handleDownload}>
               {loading === "download" ? <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <FileDown className="mr-2 h-5 w-5 sm:h-4 sm:w-4" />}
               {loading === "download" ? t.exportar.generando : t.exportar.descargar}
             </Button>
-            <Button variant="outline" className="flex-1 sm:h-10 sm:rounded-lg h-12 rounded-full text-base sm:text-sm" disabled={!!loading} onClick={handleShare}>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-12 rounded-2xl text-base sm:text-sm" disabled={!!loading} onClick={handleShare}>
               {loading === "share" ? <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Share2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4" />}
               {loading === "share" ? t.exportar.generando : t.exportar.compartir}
             </Button>
-            <Button variant="secondary" className="flex-1 sm:h-10 sm:rounded-lg h-12 rounded-full text-base sm:text-sm" disabled={!!loading} onClick={handleSendEmail}>
+            <Button variant="secondary" className="h-12 rounded-2xl text-base sm:text-sm" disabled={!!loading} onClick={handleSendEmail}>
               {loading === "email" ? <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5 sm:h-4 sm:w-4" />}
               {loading === "email" ? t.exportar.enviando : t.exportar.enviarMedico}
             </Button>

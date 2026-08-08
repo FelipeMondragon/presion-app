@@ -65,7 +65,7 @@ export async function PUT(
       return NextResponse.json({ error: "Contraseña actual incorrecta" }, { status: 400 })
     }
 
-    const passwordHash = await hash(parsed.data.newPassword, 10)
+    const passwordHash = await hash(parsed.data.newPassword, 12)
     await db.update(users).set({ passwordHash, passwordChangedAt: new Date().toISOString() }).where(eq(users.id, id))
     return NextResponse.json({ success: true })
   }
@@ -120,7 +120,8 @@ export async function PUT(
       if (typeof pw !== "string" || pw.length < 8) {
         return NextResponse.json({ error: "Mínimo 8 caracteres" }, { status: 400 })
       }
-      updates.passwordHash = await hash(pw, 10)
+      updates.passwordHash = await hash(pw, 12)
+      updates.passwordChangedAt = new Date().toISOString()
     }
 
     await db.update(users).set(updates).where(eq(users.id, id))

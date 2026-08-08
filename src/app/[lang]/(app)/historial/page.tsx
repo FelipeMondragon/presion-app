@@ -16,13 +16,15 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  ReferenceLine,
 } from "recharts"
 import { DataTable } from "@/components/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Trash2, Loader2, BarChart3, List } from "lucide-react"
 import { LabeledSelect } from "@/components/labeled-select"
-import { formatDate, formatDateShort } from "@/lib/utils"
+import { SegmentedControl } from "@/components/segmented-control"
+import { ChartTooltip, type ChartTooltipEntry } from "@/components/chart-tooltip"
+import { formatDate } from "@/lib/utils"
 import type { Measurement } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -45,6 +47,7 @@ export default function HistorialPage() {
   const deferredFilter = useDeferredValue(filter)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [view, setView] = useState<"chart" | "list">("chart")
+  const [metric, setMetric] = useState<"bp" | "pulse">("bp")
 
   useEffect(() => {
     let cancelled = false
@@ -166,14 +169,66 @@ export default function HistorialPage() {
     [t, lang, bpCache, deleting, handleDelete]
   )
 
-  const chartData = [...filteredMeasurements]
-    .reverse()
-    .map((m) => ({
-      date: formatDateShort(m.measured_at, lang),
-      sistolica: m.systolic,
-      diastolica: m.diastolic,
-      pulso: m.pulse,
-    }))
+  const chartData = useMemo(
+    () =>
+      [...filteredMeasurements]
+        .reverse()
+        .map((m) => ({
+          ts: new Date(m.measured_at).getTime(),
+          sys: m.systolic,
+          dia: m.diastolic,
+          pulse: m.pulse,
+          classification: classifyBP(m.systolic, m.diastolic),
+          measured_at: m.measured_at,
+        })),
+    [filteredMeasurements]
+  )
+
+  const yDomain = metric === "bp" ? ["dataMin - 15", "dataMax + 5"] : ["dataMin - 8", "dataMax + 8"]
+
+  const xTickFormatter = (v: number) => {
+    const min = chartData[0]?.ts ?? v
+    const max = chartData[chartData.length - 1]?.ts ?? v
+    const locale = lang === "en" ? "en-US" : "es-MX"
+    if (max - min < 24 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date(v))
+    }
+    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit" }).format(new Date(v))
+  }
+
+  const renderHistTooltip = (point: Record<string, unknown> | undefined, entries: ChartTooltipEntry[]) => {
+    const measuredAt = point?.measured_at as string | undefined
+    const classification = point?.classification as ReturnType<typeof classifyBP> | undefined
+    return (
+      <>
+        <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          {measuredAt ? formatDate(measuredAt, lang, { dateStyle: "medium", timeStyle: "short" }) : ""}
+        </p>
+        {entries.length === 0 ? (
+          <p className="text-sm text-gray-400">{t.historial.sinMediciones}</p>
+        ) : (
+          <div className="space-y-1">
+            {entries.map((e) => (
+              <p key={e.name} className="flex items-center gap-2 text-sm">
+                <span className="h-2 w-2 rounded-full" style={{ background: e.color }} />
+                <span className="text-gray-500 dark:text-gray-400">{e.name}</span>
+                <span className="ml-auto pl-4 font-mono font-semibold text-gray-900 dark:text-gray-100">
+                  {e.value}{metric === "pulse" ? " bpm" : " mmHg"}
+                </span>
+              </p>
+            ))}
+          </div>
+        )}
+        {metric === "bp" && classification && (
+          <div className="mt-2">
+            <Badge className={`${classification.bgColor} ${classification.color} border-0`}>
+              {t.clasificacion[classification.classification]}
+            </Badge>
+          </div>
+        )}
+      </>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -228,54 +283,79 @@ export default function HistorialPage() {
       {/* Gráfico */}
       {view === "chart" && chartData.length > 1 && (
         <GlassCard className="p-6">
-          <div className="h-64 sm:h-[400px] lg:h-[500px] min-h-[200px]">
-            <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={200} aspect={1.6}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <SegmentedControl
+              value={metric}
+              onValueChange={(v) => setMetric(v as "bp" | "pulse")}
+              label=""
+              options={[
+                { value: "bp", label: t.historial.metricaPresion },
+                { value: "pulse", label: t.historial.metricaPulso },
+              ]}
+            />
+          </div>
+          <div className="h-64 min-h-[200px] sm:h-[420px] lg:h-[460px]">
+            <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={200}>
+              <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200 dark:stroke-gray-700" />
                 <XAxis
-                  dataKey="date"
+                  dataKey="ts"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
                   tick={{ fontSize: 10 }}
+                  tickFormatter={xTickFormatter}
                   stroke="#9ca3af"
-                  interval="preserveStartEnd"
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <YAxis
-                  domain={["dataMin - 20", "dataMax + 10"]}
+                  domain={yDomain}
                   tick={{ fontSize: 10 }}
                   stroke="#9ca3af"
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
                 />
                 <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "0.5rem",
-                    fontSize: "0.875rem",
-                  }}
+                  content={<ChartTooltip render={renderHistTooltip} />}
+                  cursor={{ stroke: "#9ca3af", strokeDasharray: "4 4", strokeOpacity: 0.4 }}
                 />
-                <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-                <Line
-                  type="monotone"
-                  dataKey="sistolica"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  name={t.historial.graficoSistolica}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="diastolica"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  name={t.historial.graficoDiastolica}
-                />
-                {chartData.some((d) => d.pulso) && (
+                {metric === "bp" ? (
+                  <>
+                    <ReferenceLine y={120} stroke="#9ca3af" strokeDasharray="4 4" strokeOpacity={0.5} />
+                    <ReferenceLine y={80} stroke="#9ca3af" strokeDasharray="4 4" strokeOpacity={0.5} />
+                    <Line
+                      type="monotone"
+                      dataKey="sys"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={{ r: 2.5 }}
+                      activeDot={{ r: 4.5 }}
+                      name={t.historial.graficoSistolica}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="dia"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={{ r: 2.5 }}
+                      activeDot={{ r: 4.5 }}
+                      name={t.historial.graficoDiastolica}
+                      connectNulls={false}
+                    />
+                  </>
+                ) : (
                   <Line
                     type="monotone"
-                    dataKey="pulso"
+                    dataKey="pulse"
                     stroke="#10b981"
                     strokeWidth={2}
-                    dot={{ r: 2 }}
+                    dot={{ r: 2.5 }}
+                    activeDot={{ r: 4.5 }}
                     name={t.historial.graficoPulso}
+                    connectNulls={false}
                   />
                 )}
               </LineChart>

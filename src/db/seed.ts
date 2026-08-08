@@ -43,7 +43,7 @@ export async function seed(db: any) {
     console.log("\n🔑 Admin login → admin@example.com / " + adminPassword + "\n")
     const userId = crypto.randomUUID()
     const passwordHash = await hash("test1234", 12)
-    const securityAnswerHash = await hash("firulais", 10)
+    const securityAnswerHash = await hash("firulais", 12)
 
     await db.insert(users).values({
       id: userId,

@@ -84,6 +84,7 @@ export const es = {
     compartirTextoLectura: "Última medición: {sis}/{dia} mmHg.",
     sistolicaShort: "Sistólica",
     diastolicaShort: "Diastólica",
+    sinRegistros: "Sin registros en este día",
     spectrumElevada: "Elevada",
     spectrumCrisis: "Crisis",
   },
@@ -112,6 +113,10 @@ export const es = {
     clasificacionEnVivo: "Clasificación en vivo",
     ingresaValores: "Ingresa sistólica y diastólica",
     referenciaNormal: "Normal: <120/80 mmHg",
+    referenciaTabla: {
+      titulo: "Valores de referencia",
+      categoria: "Categoría",
+    },
   },
   historial: {
     titulo: "Historial",
@@ -134,6 +139,8 @@ export const es = {
     graficoSistolica: "Presión sistólica",
     graficoDiastolica: "Presión diastólica",
     graficoPulso: "Pulso cardíaco",
+    metricaPresion: "Presión",
+    metricaPulso: "Pulso",
     buscar: "Buscar mediciones...",
   },
   exportar: {
