@@ -37,4 +37,10 @@ strictEqual(crisis_sys.classification, "crisisHipertensiva")
 const crisis_dia = classifyBP(150, 121)
 strictEqual(crisis_dia.classification, "crisisHipertensiva")
 
-console.log("✅ classifier.test.ts — all 12 assertions passed")
+const crisis_boundary_sys = classifyBP(180, 120)
+strictEqual(crisis_boundary_sys.classification, "hipertensionGrado2")
+
+const crisis_boundary_dia = classifyBP(181, 120)
+strictEqual(crisis_boundary_dia.classification, "crisisHipertensiva")
+
+console.log("✅ classifier.test.ts — all 16 assertions passed")

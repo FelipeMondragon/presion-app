@@ -14,6 +14,9 @@ export function FloatingInput({
   error,
   size = "sm",
   suffixIcon,
+  min,
+  max,
+  step,
 }: {
   id: string
   label: string
@@ -26,6 +29,9 @@ export function FloatingInput({
   error?: string
   size?: "sm" | "lg"
   suffixIcon?: React.ReactNode
+  min?: number
+  max?: number
+  step?: number
 }) {
   const isLg = size === "lg"
 
@@ -35,7 +41,14 @@ export function FloatingInput({
         id={id}
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => {
+          const v = e.target.value
+          if (type === "number" && max != null && v !== "" && parseFloat(v) > max) return
+          onChange(v)
+        }}
         placeholder={placeholder || label}
         required={required}
         autoComplete={autoComplete}

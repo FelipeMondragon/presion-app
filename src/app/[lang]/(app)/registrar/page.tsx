@@ -14,8 +14,16 @@ import { SegmentedControl } from "@/components/segmented-control"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Heart, Loader2 } from "lucide-react"
+import { Heart, Loader2, AlertTriangle } from "lucide-react"
 
 export default function RegistrarPage() {
   const params = useParams()
@@ -40,6 +48,7 @@ export default function RegistrarPage() {
   const [notes, setNotes] = useState(searchParams.get("n") || "")
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [savedCrisis, setSavedCrisis] = useState<{ systolic: number; diastolic: number } | null>(null)
 
   const s = parseInt(systolic)
   const d = parseInt(diastolic)
@@ -116,7 +125,15 @@ export default function RegistrarPage() {
         return
       }
 
+      const response = (await res.json()) as {
+        success: boolean
+        id: string
+        classification?: string
+      }
       toast.success(t.registrar.exito)
+      if (response.classification === "crisisHipertensiva") {
+        setSavedCrisis({ systolic: result.data.systolic, diastolic: result.data.diastolic })
+      }
       setSystolic("")
       setDiastolic("")
       setPulse("")
@@ -153,6 +170,9 @@ export default function RegistrarPage() {
                 required
                 error={errors.systolic}
                 size="lg"
+                min={50}
+                max={300}
+                step={1}
               />
 
               <FloatingInput
@@ -165,6 +185,9 @@ export default function RegistrarPage() {
                 required
                 error={errors.diastolic}
                 size="lg"
+                min={30}
+                max={200}
+                step={1}
               />
             </div>
 
@@ -173,6 +196,28 @@ export default function RegistrarPage() {
               <div className="rounded-lg p-3 text-center glass-subtle md:hidden">
                 <p className={`text-sm font-semibold ${classification.color}`}>
                   {t.clasificacion[classification.classification]}
+                </p>
+              </div>
+            )}
+
+            {/* Alerta de lectura crítica */}
+            {classification?.classification === "crisisHipertensiva" && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/50"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                    {t.registrar.crisisTitulo}
+                  </p>
+                </div>
+                <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+                  {t.registrar.crisisMensaje}
+                </p>
+                <p className="mt-1 text-sm font-medium text-red-700 dark:text-red-300">
+                  {t.registrar.crisisUrgente}
                 </p>
               </div>
             )}
@@ -188,6 +233,9 @@ export default function RegistrarPage() {
               onChange={setPulse}
               placeholder={t.registrar.pulsoPlaceholder}
               error={errors.pulse}
+              min={30}
+              max={250}
+              step={1}
             />
 
             <hr className="border-gray-100 dark:border-gray-800" />
@@ -360,6 +408,40 @@ export default function RegistrarPage() {
           )}
         </Button>
       </div>
+
+      {/* Diálogo de lectura crítica */}
+      <Dialog
+        open={!!savedCrisis}
+        onOpenChange={(open) => {
+          if (!open) setSavedCrisis(null)
+        }}
+      >
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+              <DialogTitle className="text-red-700 dark:text-red-400">
+                {t.registrar.crisisDialogoTitulo}
+              </DialogTitle>
+            </div>
+            <DialogDescription>
+              {savedCrisis && (
+                <p className="my-2 text-center text-2xl font-mono font-bold text-gray-900 dark:text-gray-100">
+                  {savedCrisis.systolic}/{savedCrisis.diastolic}
+                  <span className="ml-1 text-sm font-normal text-gray-400">{t.registrar.mmHg}</span>
+                </p>
+              )}
+              {t.registrar.crisisMensaje} {t.registrar.crisisUrgente}
+              <span className="mt-2 block">{t.registrar.crisisDialogoMensaje}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <DialogClose render={<Button variant="gradient" />}>
+              {t.registrar.entendido}
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

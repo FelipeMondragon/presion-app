@@ -75,7 +75,7 @@ export const es = {
     bpm: "bpm",
     registros: "registros",
     estaSemana: "esta semana",
-    tendencias: "Tendencias semanales",
+    tendencias: "Tendencias",
     compartir: "Compartir",
     linkCopiado: "Link copiado al portapapeles",
     compartirTexto: "Mirá mis lecturas de presión en {app}: {url}",
@@ -87,6 +87,18 @@ export const es = {
     sinRegistros: "Sin registros en este día",
     spectrumElevada: "Elevada",
     spectrumCrisis: "Crisis",
+    periodo: "Período",
+    dias7: "7 días",
+    dias30: "30 días",
+    dias90: "90 días",
+    promedioPeriodo: "Promedio del período",
+    comparacion: "vs. período anterior",
+    sinPeriodoAnterior: "Sin período anterior",
+    lecturas: "mediciones",
+    diasConDatos: "días con datos",
+    variabilidad: "Variabilidad",
+    desviacionEstandar: "Desv. estándar",
+    crisisEnPeriodo: "Lecturas críticas",
   },
   registrar: {
     titulo: "Nueva medición",
@@ -117,6 +129,15 @@ export const es = {
       titulo: "Valores de referencia",
       categoria: "Categoría",
     },
+    crisisTitulo: "Lectura crítica",
+    crisisMensaje:
+      "Sistólica mayor a 180 o diastólica mayor a 120. Descansá 5 minutos y volvé a medirte.",
+    crisisUrgente:
+      "Si la lectura se mantiene y presentás dolor de pecho, falta de aire u otros síntomas, buscá atención médica de inmediato.",
+    crisisDialogoTitulo: "Lectura crítica registrada",
+    crisisDialogoMensaje:
+      "Registramos tus valores. Repetí la medición tras descansar unos minutos. Esta aplicación es informativa y no sustituye la evaluación de un profesional de la salud.",
+    entendido: "Entendido",
   },
   historial: {
     titulo: "Historial",

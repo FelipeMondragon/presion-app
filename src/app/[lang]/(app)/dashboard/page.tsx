@@ -24,6 +24,8 @@ import { PlusCircle, Heart, Activity, TrendingUp, Share2 } from "lucide-react"
 import Link from "next/link"
 import { formatDate, cn } from "@/lib/utils"
 import { ChartTooltip, type ChartTooltipEntry } from "@/components/chart-tooltip"
+import { SegmentedControl } from "@/components/segmented-control"
+import { trendStats, diffVsPrevious, dailyTrendPoints } from "@/lib/bp-trends"
 import type { Measurement } from "@/lib/types"
 
 const CLASSIFICATION_ORDER = ["normal", "elevada", "hipertensionGrado1", "hipertensionGrado2", "crisisHipertensiva"] as const
@@ -36,13 +38,6 @@ const CLASSIFICATION_HEX: Record<string, string> = {
   hipertensionGrado1: "#f59e0b",
   hipertensionGrado2: "#f97316",
   crisisHipertensiva: "#ef4444",
-}
-
-function localDateKey(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
 }
 
 function weekdayShort(date: Date, lang: string): string {
@@ -89,8 +84,9 @@ export default function DashboardPage() {
     }
   }, [session, router, lang])
 
+  const [readings, setReadings] = useState<Measurement[]>([])
   const [lastReading, setLastReading] = useState<Measurement | null>(null)
-  const [weeklyReadings, setWeeklyReadings] = useState<Measurement[]>([])
+  const [period, setPeriod] = useState<"7" | "30" | "90">("7")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -99,20 +95,19 @@ export default function DashboardPage() {
     async function loadData() {
       setLoading(true)
       try {
-        const res = await fetch("/api/measurements")
+        const res = await fetch(`/api/measurements?limit=1000`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = (await res.json()) as Measurement[]
+        const data = (await res.json()) as Measurement[] | { data: Measurement[] }
 
-        if (!cancelled && Array.isArray(data)) {
-          const weekAgo = new Date()
-          weekAgo.setDate(weekAgo.getDate() - 7)
-          setLastReading(data[0] || null)
-          setWeeklyReadings(data.filter((m) => new Date(m.measured_at) >= weekAgo))
+        if (!cancelled && data) {
+          const list = Array.isArray(data) ? data : (data as { data: Measurement[] }).data
+          setReadings(list)
+          setLastReading(list[0] || null)
         }
       } catch {
         if (!cancelled) {
+          setReadings([])
           setLastReading(null)
-          setWeeklyReadings([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -124,26 +119,17 @@ export default function DashboardPage() {
     return () => { cancelled = true }
   }, [session, status])
 
-  const avgSystolic = weeklyReadings.length
-    ? Math.round(
-        weeklyReadings.reduce((sum, m) => sum + m.systolic, 0) /
-          weeklyReadings.length
-      )
-    : 0
-  const avgDiastolic = weeklyReadings.length
-    ? Math.round(
-        weeklyReadings.reduce((sum, m) => sum + m.diastolic, 0) /
-          weeklyReadings.length
-      )
-    : 0
-  const avgPulse = weeklyReadings.some((m) => m.pulse)
-    ? Math.round(
-        weeklyReadings
-          .filter((m) => m.pulse)
-          .reduce((sum, m) => sum + (m.pulse || 0), 0) /
-          weeklyReadings.filter((m) => m.pulse).length
-      )
-    : null
+  const trend = useMemo(() => {
+    const windowDays = parseInt(period, 10)
+    return trendStats(readings, windowDays)
+  }, [readings, period])
+
+  const diff = diffVsPrevious(trend.current, trend.previous)
+
+  const { current } = trend
+  const avgSys = current.avgSys ?? 0
+  const avgDia = current.avgDia ?? 0
+  const avgPulse = current.avgPulse
 
   const lastClassification = lastReading
     ? classifyBP(lastReading.systolic, lastReading.diastolic)
@@ -152,7 +138,7 @@ export default function DashboardPage() {
     ? CLASSIFICATION_ORDER.indexOf(lastClassification.classification)
     : -1
   const avgClassification =
-    avgSystolic > 0 ? classifyBP(avgSystolic, avgDiastolic) : null
+    avgSys > 0 ? classifyBP(avgSys, avgDia) : null
   const avgSpectrumIndex = avgClassification
     ? CLASSIFICATION_ORDER.indexOf(avgClassification.classification)
     : -1
@@ -195,32 +181,27 @@ export default function DashboardPage() {
     )
   }
 
-  const weeklyChartData = useMemo(() => {
-    if (weeklyReadings.length === 0) return []
+  const trendDayLabel = (date: Date) =>
+    period === "7"
+      ? weekdayShort(date, lang)
+      : new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-MX", {
+          day: "2-digit",
+          month: "2-digit",
+        }).format(date)
 
-    const days: { key: string; date: Date; readings: Measurement[] }[] = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      days.push({ key: localDateKey(d), date: d, readings: [] })
-    }
-    const byKey = new Map(days.map((d) => [d.key, d]))
-    for (const m of weeklyReadings) {
-      const key = localDateKey(new Date(m.measured_at))
-      byKey.get(key)?.readings.push(m)
-    }
+  const chartData = useMemo(() => {
+    const days = dailyTrendPoints(readings, parseInt(period, 10))
+    if (days.length === 0) return []
 
     const points = days.map((d) => {
-      const r = d.readings
-      const sys = r.length ? Math.round(r.reduce((s, m) => s + m.systolic, 0) / r.length) : null
-      const dia = r.length ? Math.round(r.reduce((s, m) => s + m.diastolic, 0) / r.length) : null
-      const classification = sys != null && dia != null ? classifyBP(sys, dia) : null
+      const classification =
+        d.sys != null && d.dia != null ? classifyBP(d.sys, d.dia) : null
       return {
-        day: weekdayShort(d.date, lang),
+        day: trendDayLabel(d.date),
         date: d.date,
-        count: r.length,
-        sys,
-        dia,
+        count: d.count,
+        sys: d.sys,
+        dia: d.dia,
         classification,
         latest: false,
       }
@@ -233,7 +214,8 @@ export default function DashboardPage() {
       }
     }
     return points
-  }, [weeklyReadings, lang])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readings, period, lang])
 
   const handleShare = async () => {
     const text = lastReading
@@ -282,23 +264,25 @@ export default function DashboardPage() {
       </div>
 
       {/* User profile card */}
-      <GlassCard className="p-4" variant="subtle">
-        <div className="flex items-center gap-4">
-          <Avatar
-            email={session?.user?.email}
-            name={session?.user?.name || session?.user?.username}
-            size="md"
-          />
-          <div>
-            <p className="font-semibold text-gray-900 dark:text-gray-100">
-              {session?.user?.name || session?.user?.username || session?.user?.email}
-            </p>
-            {session?.user?.username && (
-              <p className="text-sm text-gray-400">@{session.user.username}</p>
-            )}
+      {session?.user && (
+        <GlassCard className="p-4" variant="subtle">
+          <div className="flex items-center gap-4">
+            <Avatar
+              email={session.user.email}
+              name={session.user.name || session.user.username}
+              size="md"
+            />
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                {session.user.name || session.user.username || session.user.email}
+              </p>
+              {session.user.username && (
+                <p className="text-sm text-gray-400">@{session.user.username}</p>
+              )}
+            </div>
           </div>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      )}
 
       {/* Hero — Última medición */}
       <GlassCard className="p-6" variant="elevated">
@@ -399,19 +383,19 @@ export default function DashboardPage() {
       </GlassCard>
 
       {/* Stats */}
-      {weeklyReadings.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2">
+      {current.count > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <GlassCard className="p-5">
             <p className="mb-3 flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
               <Activity className="h-4 w-4" />
-              {t.dashboard.promedioSemanal}
+              {t.dashboard.promedioPeriodo}
             </p>
             <div className="space-y-2">
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {avgSystolic}/{avgDiastolic}
+                {avgSys}/{avgDia}
                 <span className="ml-1 text-sm font-normal text-gray-400">{t.dashboard.mmhg}</span>
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {avgClassification && (
                   <Badge className={`${avgClassification.bgColor} ${avgClassification.color} border-0`}>
                     {t.clasificacion[avgClassification.classification]}
@@ -419,6 +403,11 @@ export default function DashboardPage() {
                 )}
                 {avgPulse && <span className="text-sm text-gray-400">{avgPulse} {t.dashboard.bpm}</span>}
               </div>
+              <p className="text-xs text-gray-400">
+                {diff.avgSys != null && diff.avgDia != null
+                  ? `${diff.avgSys > 0 ? "+" : ""}${diff.avgSys}/${diff.avgDia > 0 ? "+" : ""}${diff.avgDia} ${t.dashboard.mmhg} ${t.dashboard.comparacion}`
+                  : t.dashboard.sinPeriodoAnterior}
+              </p>
             </div>
           </GlassCard>
 
@@ -430,24 +419,57 @@ export default function DashboardPage() {
             <div className="space-y-2">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  {weeklyReadings.length}
+                  {current.count}
                 </span>
                 <span className="text-sm text-gray-400">{t.dashboard.registros}</span>
               </div>
-              <p className="text-xs text-gray-400">{t.dashboard.estaSemana}</p>
+              <p className="text-xs text-gray-400">
+                {current.daysWithData} {t.dashboard.diasConDatos}
+                {current.crisisCount > 0 && (
+                  <span className="ml-1 text-red-500">· {current.crisisCount} {t.dashboard.crisisEnPeriodo}</span>
+                )}
+              </p>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="p-5">
+            <p className="mb-3 flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+              <Activity className="h-4 w-4" />
+              {t.dashboard.variabilidad}
+            </p>
+            <div className="space-y-2">
+              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                {current.stdDevSys != null ? `±${current.stdDevSys}` : "—"}
+                <span className="text-sm font-normal text-gray-400"> / </span>
+                {current.stdDevDia != null ? `±${current.stdDevDia}` : "—"}
+                <span className="ml-1 text-sm font-normal text-gray-400">{t.dashboard.mmhg}</span>
+              </p>
+              <p className="text-xs text-gray-400">{t.dashboard.desviacionEstandar}</p>
             </div>
           </GlassCard>
         </div>
       )}
 
-      {/* Weekly trend chart */}
-      {weeklyChartData.length > 0 && (
+      {/* Trend chart */}
+      {chartData.length > 0 && (
         <GlassCard className="p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
-              <TrendingUp className="h-4 w-4" />
-              {t.dashboard.tendencias}
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+                <TrendingUp className="h-4 w-4" />
+                {t.dashboard.tendencias}
+              </p>
+              <SegmentedControl
+                value={period}
+                onValueChange={(v) => setPeriod(v as "7" | "30" | "90")}
+                label=""
+                options={[
+                  { value: "7", label: t.dashboard.dias7 },
+                  { value: "30", label: t.dashboard.dias30 },
+                  { value: "90", label: t.dashboard.dias90 },
+                ]}
+              />
+            </div>
             <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
@@ -486,9 +508,9 @@ export default function DashboardPage() {
 
           <div className="h-56 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weeklyChartData}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200 dark:stroke-gray-700" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} interval="preserveStartEnd" />
                 <YAxis width={42} tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} domain={["dataMin - 10", "dataMax + 10"]} />
                 <Tooltip
                   content={<ChartTooltip render={renderWeeklyTooltip} />}
