@@ -5,6 +5,7 @@ import { measurements } from "@/db/schema"
 import { eq, desc, and, gte, lte, count } from "drizzle-orm"
 import crypto from "crypto"
 import { measurementSchema } from "@/lib/validators"
+import { classifyBP } from "@/lib/bp-classifier"
 import { checkRateLimit } from "@/lib/rate-limiter"
 import { getClientIp } from "@/lib/ip"
 
@@ -114,7 +115,14 @@ export async function POST(request: Request) {
     measuredAt: data.measured_at ?? new Date().toISOString(),
   })
 
-  return NextResponse.json({ success: true, id }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json(
+    {
+      success: true,
+      id,
+      classification: classifyBP(data.systolic, data.diastolic).classification,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  )
 }
 
 function mapMeasurement(m: typeof measurements.$inferSelect) {

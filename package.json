@@ -10,7 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "test": "tsx test/classifier.test.ts",
+    "test": "tsx test/classifier.test.ts && tsx test/trends.test.ts && tsx test/measurement.test.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio"
   },
