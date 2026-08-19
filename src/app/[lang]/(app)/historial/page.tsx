@@ -20,13 +20,14 @@ import {
 } from "recharts"
 import { DataTable } from "@/components/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Trash2, Loader2, BarChart3, List } from "lucide-react"
+import { Trash2, Loader2, BarChart3, List, TrendingUp } from "lucide-react"
 import { LabeledSelect } from "@/components/labeled-select"
 import { SegmentedControl } from "@/components/segmented-control"
 import { ChartTooltip, type ChartTooltipEntry } from "@/components/chart-tooltip"
 import { formatDate } from "@/lib/utils"
 import type { Measurement } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { weekdayPattern } from "@/lib/bp-trends"
 
 export default function HistorialPage() {
   const params = useParams()
@@ -46,8 +47,9 @@ export default function HistorialPage() {
   const [filter, setFilter] = useState<string>("all")
   const deferredFilter = useDeferredValue(filter)
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [view, setView] = useState<"chart" | "list">("chart")
+  const [view, setView] = useState<"chart" | "trend" | "list">("chart")
   const [metric, setMetric] = useState<"bp" | "pulse">("bp")
+  const [timeZone, setTimeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
 
   useEffect(() => {
     let cancelled = false
@@ -56,9 +58,16 @@ export default function HistorialPage() {
       if (!session?.user?.id) return
       setLoading(true)
 
-      const res = await fetch("/api/measurements")
+      const [tzRes, res] = await Promise.all([
+        fetch("/api/reminder-settings").catch(() => null),
+        fetch("/api/measurements"),
+      ])
       const data = await res.json()
 
+      if (!cancelled && tzRes?.ok) {
+        const tzData = await tzRes.json()
+        if (tzData?.timezone) setTimeZone(tzData.timezone)
+      }
       if (!cancelled && Array.isArray(data)) setMeasurements(data)
       if (!cancelled) setLoading(false)
     }
@@ -91,6 +100,11 @@ export default function HistorialPage() {
     }
     return measurements
   }, [measurements, deferredFilter])
+
+  const weekday = useMemo(
+    () => weekdayPattern(filteredMeasurements, timeZone, lang === "en" ? "en-US" : "es-MX"),
+    [filteredMeasurements, timeZone, lang]
+  )
 
   const handleDelete = async (id: string) => {
     if (!confirm(t.historial.eliminarConfirmacion)) return
@@ -267,6 +281,18 @@ export default function HistorialPage() {
           {t.historial.grafico}
         </button>
         <button
+          onClick={() => setView("trend")}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+            view === "trend"
+              ? "bg-white text-red-600 shadow-sm dark:bg-white/10 dark:text-red-400"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          )}
+        >
+          <TrendingUp className="h-4 w-4" />
+          {t.historial.tendencia}
+        </button>
+        <button
           onClick={() => setView("list")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
@@ -368,6 +394,80 @@ export default function HistorialPage() {
       {view === "chart" && chartData.length <= 1 && !loading && (
         <GlassCard className="p-12 text-center text-gray-400">
           {t.historial.sinMediciones}
+        </GlassCard>
+      )}
+
+      {/* Tendencia por día de la semana */}
+      {view === "trend" && (
+        <GlassCard className="p-6">
+          <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+            <TrendingUp className="h-4 w-4" />
+            {t.historial.tendencia}
+          </p>
+
+          {weekday.direction === "insufficient" && (
+            <p className="text-sm text-gray-400">{t.historial.tendenciaInsuficiente}</p>
+          )}
+
+          {weekday.direction === "high" && weekday.stat && (
+            <p className="text-lg font-semibold text-red-600 dark:text-red-400">
+              {t.historial.tendenciaAlta
+                .replace("{weekday}", weekday.stat.label)
+                .replace("{sys}", String(weekday.stat.avgSys))
+                .replace("{dia}", String(weekday.stat.avgDia))
+                .replace("{count}", String(weekday.stat.count))}
+            </p>
+          )}
+
+          {weekday.direction === "low" && weekday.stat && (
+            <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+              {t.historial.tendenciaBaja
+                .replace("{weekday}", weekday.stat.label)
+                .replace("{sys}", String(weekday.stat.avgSys))
+                .replace("{dia}", String(weekday.stat.avgDia))
+                .replace("{count}", String(weekday.stat.count))}
+            </p>
+          )}
+
+          {weekday.direction === "none" && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.historial.tendenciaSinPatron}</p>
+          )}
+
+          {weekday.baselineSys != null && weekday.baselineDia != null && (
+            <p className="mt-1 text-xs text-gray-400">
+              {t.historial.tendenciaComparacion
+                .replace("{baselineSys}", String(weekday.baselineSys))
+                .replace("{baselineDia}", String(weekday.baselineDia))}
+            </p>
+          )}
+
+          <div className="mt-5 space-y-1.5">
+            {weekday.stats.map((s) => {
+              const isStandout = s.index === weekday.stat?.index
+              return (
+                <div key={s.index} className="flex items-center justify-between gap-3 text-sm">
+                  <span
+                    className={cn(
+                      "w-24",
+                      isStandout
+                        ? "font-semibold text-gray-900 dark:text-gray-100"
+                        : "text-gray-500 dark:text-gray-400"
+                    )}
+                  >
+                    {s.label}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {s.count} {t.historial.tendenciaMediciones}
+                  </span>
+                  <span className="w-20 text-right font-mono">
+                    {s.avgSys != null ? `${s.avgSys}/${s.avgDia}` : "—"}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="mt-5 text-[11px] text-gray-400">{t.historial.tendenciaDisclaimer}</p>
         </GlassCard>
       )}
 

@@ -148,3 +148,109 @@ export function dailyTrendPoints(
     }
   })
 }
+
+export type WeekdayStat = {
+  index: number
+  label: string
+  count: number
+  avgSys: number | null
+  avgDia: number | null
+}
+
+export type WeekdayPattern = {
+  direction: "high" | "low" | "none" | "insufficient"
+  stat: WeekdayStat | null
+  baselineSys: number | null
+  baselineDia: number | null
+  totalCount: number
+  spanDays: number
+  minPerDay: number
+  minSpanDays: number
+  stats: WeekdayStat[]
+}
+
+// ponytail: heuristic, not medical advice. Thresholds are conservative on purpose;
+// tune minPerDay/minDiffSys if real users report noise.
+const WEEKDAY_MIN_PER_DAY = 4
+const WEEKDAY_MIN_SPAN_DAYS = 28
+const WEEKDAY_MIN_DIFF_SYS = 5
+
+// Jan 7 2024 12:00 UTC is a Sunday; labels stay deterministic in any timezone
+const WEEKDAY_LABEL_REF = Date.UTC(2024, 0, 7, 12)
+
+function weekdayIndex(iso: string, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone }).formatToParts(new Date(iso))
+  const value = parts.find((p) => p.type === "weekday")?.value
+  const index = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(value ?? "")
+  return index >= 0 ? index : 0
+}
+
+function weekdayLabel(index: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(
+    new Date(WEEKDAY_LABEL_REF + index * MS_PER_DAY)
+  )
+}
+
+export function weekdayPattern(
+  readings: TrendReading[],
+  timeZone: string,
+  locale: string,
+): WeekdayPattern {
+  const sysByDay = Array.from({ length: 7 }, () => [] as number[])
+  const diaByDay = Array.from({ length: 7 }, () => [] as number[])
+  const allSys: number[] = []
+  const allDia: number[] = []
+  let minTs = Infinity
+  let maxTs = -Infinity
+
+  for (const r of readings) {
+    const ts = new Date(r.measured_at).getTime()
+    if (Number.isNaN(ts)) continue
+    minTs = Math.min(minTs, ts)
+    maxTs = Math.max(maxTs, ts)
+    const i = weekdayIndex(r.measured_at, timeZone)
+    sysByDay[i].push(r.systolic)
+    diaByDay[i].push(r.diastolic)
+    allSys.push(r.systolic)
+    allDia.push(r.diastolic)
+  }
+
+  const spanDays = readings.length === 0 ? 0 : Math.floor((maxTs - minTs) / MS_PER_DAY) + 1
+  const stats: WeekdayStat[] = Array.from({ length: 7 }, (_, i) => ({
+    index: i,
+    label: weekdayLabel(i, locale),
+    count: sysByDay[i].length,
+    avgSys: mean(sysByDay[i]),
+    avgDia: mean(diaByDay[i]),
+  }))
+
+  const baselineSys = mean(allSys)
+  const baselineDia = mean(allDia)
+
+  const enough = stats.some((s) => s.count >= WEEKDAY_MIN_PER_DAY)
+  if (spanDays < WEEKDAY_MIN_SPAN_DAYS || !enough) {
+    return {
+      direction: "insufficient",
+      stat: null,
+      baselineSys,
+      baselineDia,
+      totalCount: allSys.length,
+      spanDays,
+      minPerDay: WEEKDAY_MIN_PER_DAY,
+      minSpanDays: WEEKDAY_MIN_SPAN_DAYS,
+      stats,
+    }
+  }
+
+  const valid = stats.filter((s) => s.count >= WEEKDAY_MIN_PER_DAY && s.avgSys != null)
+  const highest = valid.reduce((a, b) => (a.avgSys! > b.avgSys! ? a : b))
+  const lowest = valid.reduce((a, b) => (a.avgSys! < b.avgSys! ? a : b))
+
+  if (baselineSys != null && highest.avgSys != null && highest.avgSys >= baselineSys + WEEKDAY_MIN_DIFF_SYS) {
+    return { direction: "high", stat: highest, baselineSys, baselineDia, totalCount: allSys.length, spanDays, minPerDay: WEEKDAY_MIN_PER_DAY, minSpanDays: WEEKDAY_MIN_SPAN_DAYS, stats }
+  }
+  if (baselineSys != null && lowest.avgSys != null && lowest.avgSys <= baselineSys - WEEKDAY_MIN_DIFF_SYS) {
+    return { direction: "low", stat: lowest, baselineSys, baselineDia, totalCount: allSys.length, spanDays, minPerDay: WEEKDAY_MIN_PER_DAY, minSpanDays: WEEKDAY_MIN_SPAN_DAYS, stats }
+  }
+  return { direction: "none", stat: null, baselineSys, baselineDia, totalCount: allSys.length, spanDays, minPerDay: WEEKDAY_MIN_PER_DAY, minSpanDays: WEEKDAY_MIN_SPAN_DAYS, stats }
+}

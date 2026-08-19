@@ -513,11 +513,12 @@ export default function DashboardPage() {
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} interval="preserveStartEnd" />
                 <YAxis width={42} tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} domain={["dataMin - 10", "dataMax + 10"]} />
                 <Tooltip
+                  filterNull={false}
                   content={<ChartTooltip render={renderWeeklyTooltip} />}
                   cursor={{ stroke: "#9ca3af", strokeDasharray: "4 4", strokeOpacity: 0.4 }}
                 />
-                <Line type="monotone" dataKey="sys" name={t.dashboard.sistolicaShort} stroke="#ef4444" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls={false} />
-                <Line type="monotone" dataKey="dia" name={t.dashboard.diastolicaShort} stroke="#3b82f6" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls={false} />
+                <Line type="monotone" dataKey="sys" name={t.dashboard.sistolicaShort} stroke="#ef4444" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls />
+                <Line type="monotone" dataKey="dia" name={t.dashboard.diastolicaShort} stroke="#3b82f6" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </div>

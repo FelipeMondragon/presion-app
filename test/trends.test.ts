@@ -3,11 +3,18 @@ import {
   trendStats,
   diffVsPrevious,
   dailyTrendPoints,
+  weekdayPattern,
   type TrendReading,
 } from "../src/lib/bp-trends"
 
 const noon = (y: number, m: number, d: number) =>
   new Date(y, m - 1, d, 12).toISOString()
+
+const TZ = "America/Mexico_City"
+const LOC = "es-MX"
+function r(iso: string, systolic: number, diastolic = 80): TrendReading {
+  return { measured_at: iso, systolic, diastolic }
+}
 
 // Averages and window boundaries
 {
@@ -106,6 +113,20 @@ const noon = (y: number, m: number, d: number) =>
   strictEqual(withData[0].dia, 82)
 }
 
+// Missing days keep count 0 and null values (chart must not fabricate a 0)
+{
+  const now = new Date(2024, 0, 31, 12)
+  const readings: TrendReading[] = [
+    { measured_at: noon(2024, 1, 10), systolic: 120, diastolic: 80 },
+    { measured_at: noon(2024, 1, 20), systolic: 130, diastolic: 85 },
+  ]
+  const points = dailyTrendPoints(readings, 30, now)
+  const day12 = points.find((p) => p.date.getDate() === 12)
+  strictEqual(day12?.count, 0)
+  strictEqual(day12?.sys, null)
+  strictEqual(day12?.dia, null)
+}
+
 // No readings
 {
   const now = new Date(2024, 0, 31, 12)
@@ -114,6 +135,77 @@ const noon = (y: number, m: number, d: number) =>
   strictEqual(current.avgSys, null)
   strictEqual(previous.count, 0)
   strictEqual(dailyTrendPoints([], 30, now).every((p) => p.count === 0), true)
+}
+
+// Weekday grouping: 2024 Mondays are Jan 1, 8, 15, 22, 29 (12:00 UTC -> Monday in MX)
+{
+  const mondays = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z", "2024-01-22T12:00:00.000Z"].map((iso) => r(iso, 140, 90))
+  const tuesdays = ["2024-01-02T12:00:00.000Z", "2024-01-09T12:00:00.000Z", "2024-01-16T12:00:00.000Z", "2024-01-23T12:00:00.000Z"].map((iso) => r(iso, 120))
+  const pattern = weekdayPattern([...mondays, ...tuesdays], TZ, LOC)
+  strictEqual(pattern.stats[1].count, 4) // Monday
+  strictEqual(pattern.stats[1].avgSys, 140)
+  strictEqual(pattern.stats[2].count, 4) // Tuesday
+  strictEqual(pattern.stats[2].avgSys, 120)
+}
+
+// Weekday boundary: a reading just after midnight local lands on the next day
+{
+  const readings = [
+    r("2024-01-01T00:30:00.000Z", 120), // 2023-12-31 18:30 in MX -> Sunday
+    r("2024-01-01T07:00:00.000Z", 130), // 2024-01-01 01:00 in MX -> Monday
+  ]
+  const pattern = weekdayPattern(readings, TZ, LOC)
+  strictEqual(pattern.stats[0].count, 1) // Sunday
+  strictEqual(pattern.stats[1].count, 1) // Monday
+}
+
+// Not enough readings per day -> no pattern
+{
+  const readings = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z"].map((iso) => r(iso, 140))
+  const pattern = weekdayPattern(readings, TZ, LOC)
+  strictEqual(pattern.direction, "insufficient")
+}
+
+// Data spans less than 28 days -> insufficient even with 4 readings per weekday
+{
+  const readings = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z", "2024-01-22T12:00:00.000Z"].map((iso) => r(iso, 140))
+  strictEqual(weekdayPattern(readings, TZ, LOC).direction, "insufficient")
+}
+
+// Small differences -> no clear pattern
+{
+  const readings: TrendReading[] = []
+  for (let w = 0; w < 4; w++) {
+    for (let d = 0; d < 7; d++) {
+      // Jan 8 2024 is a Monday; one reading per weekday for 4 weeks
+      const dt = new Date(Date.UTC(2024, 0, 8 + d + w * 7, 12))
+      readings.push(r(dt.toISOString(), 120))
+    }
+  }
+  strictEqual(weekdayPattern(readings, TZ, LOC).direction, "none")
+}
+
+// A clearly higher weekday -> "high" pattern with that day
+{
+  const mondays = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z", "2024-01-22T12:00:00.000Z", "2024-01-29T12:00:00.000Z"].map((iso) => r(iso, 140, 90))
+  const others: TrendReading[] = []
+  for (let w = 0; w < 4; w++) {
+    for (let d = 1; d <= 6; d++) {
+      // Tuesday..Sunday: Jan 9 + d + w*7 (Jan 9 2024 is a Tuesday)
+      const dt = new Date(Date.UTC(2024, 0, 9 + d + w * 7, 12))
+      others.push(r(dt.toISOString(), 120))
+    }
+  }
+  const pattern = weekdayPattern([...mondays, ...others], TZ, LOC)
+  strictEqual(pattern.direction, "high")
+  strictEqual(pattern.stat?.index, 1) // Monday
+}
+
+// Empty history does not break the pattern helper
+{
+  const pattern = weekdayPattern([], TZ, LOC)
+  strictEqual(pattern.direction, "insufficient")
+  strictEqual(pattern.stats.length, 7)
 }
 
 console.log("✅ trends.test.ts — all assertions passed")
