@@ -4,8 +4,6 @@ import { getToken } from "next-auth/jwt"
 const LOCALES = ["es", "en"]
 const DEFAULT_LOCALE = "es"
 
-const SESSION_COOKIE = "__Secure-authjs.session-token"
-
 function getLocale(request: NextRequest): string {
   const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value
   if (cookieLocale && LOCALES.includes(cookieLocale)) return cookieLocale

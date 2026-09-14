@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
+import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core"
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -28,6 +28,20 @@ export const measurements = sqliteTable("measurements", {
   userIdIdx: index("idx_measurements_user_id").on(table.userId),
   measuredAtIdx: index("idx_measurements_measured_at").on(table.measuredAt),
   userDateIdx: index("idx_measurements_user_date").on(table.userId, table.measuredAt),
+}))
+
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: integer("reset_at").notNull(),
+})
+
+export const reminderSends = sqliteTable("reminder_sends", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  slot: text("slot").notNull(),
+  sentAt: text("sent_at").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.slot] }),
 }))
 
 export const reminderSettings = sqliteTable("reminder_settings", {

@@ -20,7 +20,7 @@ export async function PUT(
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`users-update:${ip}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`users-update:${ip}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
@@ -141,7 +141,7 @@ export async function DELETE(
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`delete-user:${ip}`, 10, 60_000)) {
+  if (!(await checkRateLimit(`delete-user:${ip}`, 10, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

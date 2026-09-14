@@ -510,15 +510,26 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200 dark:stroke-gray-700" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11 }}
+                  stroke="#9ca3af"
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={24}
+                  tickMargin={8}
+                  padding={{ left: 8, right: 8 }}
+                />
                 <YAxis width={42} tick={{ fontSize: 11 }} stroke="#9ca3af" tickLine={false} axisLine={false} domain={["dataMin - 10", "dataMax + 10"]} />
                 <Tooltip
                   filterNull={false}
+                  offset={12}
                   content={<ChartTooltip render={renderWeeklyTooltip} />}
                   cursor={{ stroke: "#9ca3af", strokeDasharray: "4 4", strokeOpacity: 0.4 }}
                 />
-                <Line type="monotone" dataKey="sys" name={t.dashboard.sistolicaShort} stroke="#ef4444" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls />
-                <Line type="monotone" dataKey="dia" name={t.dashboard.diastolicaShort} stroke="#3b82f6" strokeWidth={2.5} dot={<ClassificationDot />} activeDot={{ r: 5 }} connectNulls />
+                <Line type="monotone" dataKey="sys" name={t.dashboard.sistolicaShort} stroke="#ef4444" strokeWidth={2.5} dot={chartData.length > 60 ? false : <ClassificationDot />} activeDot={{ r: 5 }} connectNulls />
+                <Line type="monotone" dataKey="dia" name={t.dashboard.diastolicaShort} stroke="#3b82f6" strokeWidth={2.5} dot={chartData.length > 60 ? false : <ClassificationDot />} activeDot={{ r: 5 }} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </div>

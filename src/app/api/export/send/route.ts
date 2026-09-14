@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { auth } from "@/lib/auth"
-import nodemailer from "nodemailer"
 import { createTransporter } from "@/lib/mail"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { isPdf } from "@/lib/utils"
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const patientNameSchema = z.string().max(100).refine((s) => !/[\r\n]/.test(s), { message: "Invalid name" })
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  if (!checkRateLimit(`export-send:${session.user.id}`, 5, 600_000)) {
+  if (!(await checkRateLimit(`export-send:${session.user.id}`, 5, 600_000))) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
 
@@ -35,6 +35,11 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_FILE_BYTES) {
     return NextResponse.json({ error: "File too large" }, { status: 400 })
+  }
+
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer())
+  if (!isPdf(header)) {
+    return NextResponse.json({ error: "File must be a PDF" }, { status: 400 })
   }
 
   let patientName: string | null = null

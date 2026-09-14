@@ -45,7 +45,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 
           // ponytail: per-IP rate limit, per-account Redis if this gets traffic
           const ip = getClientIp(request)
-          if (!checkRateLimit(`login:${ip}`, 5, 60_000)) {
+          if (!(await checkRateLimit(`login:${ip}`, 5, 60_000))) {
             console.warn(`[authorize] rate limit exceeded for ip=${ip}`)
             return null
           }

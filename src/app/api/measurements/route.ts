@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/db/client"
 import { measurements } from "@/db/schema"
-import { eq, desc, and, gte, lte, count } from "drizzle-orm"
+import { eq, asc, desc, and, gte, lte, count } from "drizzle-orm"
 import crypto from "crypto"
 import { measurementSchema } from "@/lib/validators"
 import { classifyBP } from "@/lib/bp-classifier"
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`measurements:${ip}`, 60, 60_000)) {
+  if (!(await checkRateLimit(`measurements:${ip}`, 60, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
@@ -33,8 +33,10 @@ export async function GET(request: Request) {
 
   if (limit !== null) {
     if (isNaN(limit) || limit < 1) return NextResponse.json({ error: "Parámetro limit inválido" }, { status: 400 })
-    limit = Math.min(limit, 100)
+    limit = Math.min(limit, 1000)
   }
+
+  const order = searchParams.get("order") === "asc" ? "asc" : "desc"
 
   if (dateFrom && isNaN(new Date(dateFrom).getTime())) {
     return NextResponse.json({ error: "Fecha desde inválida" }, { status: 400 })
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
   }
   if (dateTo) {
     const end = new Date(dateTo)
-    end.setHours(23, 59, 59, 999)
+    if (dateTo.length === 10) end.setHours(23, 59, 59, 999)
     conditions.push(lte(measurements.measuredAt, end.toISOString()))
   }
 
@@ -62,7 +64,7 @@ export async function GET(request: Request) {
     .select()
     .from(measurements)
     .where(where)
-    .orderBy(desc(measurements.measuredAt))
+    .orderBy(order === "asc" ? asc(measurements.measuredAt) : desc(measurements.measuredAt))
     .limit(limitValue)
     .offset(offset)
 
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`measurements:${ip}`, 60, 60_000)) {
+  if (!(await checkRateLimit(`measurements:${ip}`, 60, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

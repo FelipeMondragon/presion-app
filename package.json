@@ -8,10 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
-    "test": "tsx test/classifier.test.ts && tsx test/trends.test.ts && tsx test/measurement.test.ts",
+    "test": "tsx test/classifier.test.ts && tsx test/trends.test.ts && tsx test/measurement.test.ts && tsx test/pdf.test.ts && tsx test/reminder-slot.test.ts && tsx test/rate-limiter.test.ts && tsx test/chart-tick.test.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:dummy": "tsx src/db/seed-dummy.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

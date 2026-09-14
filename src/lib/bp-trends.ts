@@ -149,108 +149,102 @@ export function dailyTrendPoints(
   })
 }
 
-export type WeekdayStat = {
-  index: number
-  label: string
+export type BucketStats = {
   count: number
   avgSys: number | null
   avgDia: number | null
 }
 
-export type WeekdayPattern = {
-  direction: "high" | "low" | "none" | "insufficient"
-  stat: WeekdayStat | null
-  baselineSys: number | null
-  baselineDia: number | null
-  totalCount: number
-  spanDays: number
-  minPerDay: number
-  minSpanDays: number
-  stats: WeekdayStat[]
-}
-
-// ponytail: heuristic, not medical advice. Thresholds are conservative on purpose;
-// tune minPerDay/minDiffSys if real users report noise.
-const WEEKDAY_MIN_PER_DAY = 4
-const WEEKDAY_MIN_SPAN_DAYS = 28
-const WEEKDAY_MIN_DIFF_SYS = 5
-
-// Jan 7 2024 12:00 UTC is a Sunday; labels stay deterministic in any timezone
-const WEEKDAY_LABEL_REF = Date.UTC(2024, 0, 7, 12)
-
-function weekdayIndex(iso: string, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone }).formatToParts(new Date(iso))
-  const value = parts.find((p) => p.type === "weekday")?.value
-  const index = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(value ?? "")
-  return index >= 0 ? index : 0
-}
-
-function weekdayLabel(index: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(
-    new Date(WEEKDAY_LABEL_REF + index * MS_PER_DAY)
-  )
-}
-
-export function weekdayPattern(
+export function timeOfDayStats(
   readings: TrendReading[],
   timeZone: string,
-  locale: string,
-): WeekdayPattern {
-  const sysByDay = Array.from({ length: 7 }, () => [] as number[])
-  const diaByDay = Array.from({ length: 7 }, () => [] as number[])
-  const allSys: number[] = []
-  const allDia: number[] = []
-  let minTs = Infinity
-  let maxTs = -Infinity
+): { morning: BucketStats; rest: BucketStats } {
+  const hourFmt = new Intl.DateTimeFormat("en-US", { hour: "2-digit", hourCycle: "h23", timeZone })
+  const sys = { morning: [] as number[], rest: [] as number[] }
+  const dia = { morning: [] as number[], rest: [] as number[] }
+
+  for (const r of readings) {
+    const date = new Date(r.measured_at)
+    if (Number.isNaN(date.getTime())) continue
+    const hour = Number(hourFmt.formatToParts(date).find((p) => p.type === "hour")?.value ?? "12")
+    const bucket = hour < 12 ? "morning" : "rest"
+    sys[bucket].push(r.systolic)
+    dia[bucket].push(r.diastolic)
+  }
+
+  return {
+    morning: { count: sys.morning.length, avgSys: mean(sys.morning), avgDia: mean(dia.morning) },
+    rest: { count: sys.rest.length, avgSys: mean(sys.rest), avgDia: mean(dia.rest) },
+  }
+}
+
+export type TargetRate = {
+  count: number
+  inRange: number
+  pct: number | null
+}
+
+function targetRate(
+  readings: TrendReading[],
+  startMs: number,
+  endMs: number,
+  targetSys: number,
+  targetDia: number,
+): TargetRate {
+  let count = 0
+  let inRange = 0
 
   for (const r of readings) {
     const ts = new Date(r.measured_at).getTime()
-    if (Number.isNaN(ts)) continue
-    minTs = Math.min(minTs, ts)
-    maxTs = Math.max(maxTs, ts)
-    const i = weekdayIndex(r.measured_at, timeZone)
-    sysByDay[i].push(r.systolic)
-    diaByDay[i].push(r.diastolic)
-    allSys.push(r.systolic)
-    allDia.push(r.diastolic)
+    if (Number.isNaN(ts) || ts < startMs || ts >= endMs) continue
+    count++
+    if (r.systolic < targetSys && r.diastolic < targetDia) inRange++
   }
 
-  const spanDays = readings.length === 0 ? 0 : Math.floor((maxTs - minTs) / MS_PER_DAY) + 1
-  const stats: WeekdayStat[] = Array.from({ length: 7 }, (_, i) => ({
-    index: i,
-    label: weekdayLabel(i, locale),
-    count: sysByDay[i].length,
-    avgSys: mean(sysByDay[i]),
-    avgDia: mean(diaByDay[i]),
-  }))
+  return { count, inRange, pct: count ? Math.round((inRange / count) * 100) : null }
+}
 
-  const baselineSys = mean(allSys)
-  const baselineDia = mean(allDia)
+export function targetRateStats(
+  readings: TrendReading[],
+  days: number,
+  now = new Date(),
+  targetSys = 130,
+  targetDia = 80,
+): { current: TargetRate; previous: TargetRate } {
+  const end = now.getTime()
+  const start = end - days * MS_PER_DAY
+  return {
+    current: targetRate(readings, start, end, targetSys, targetDia),
+    previous: targetRate(readings, start - days * MS_PER_DAY, start, targetSys, targetDia),
+  }
+}
 
-  const enough = stats.some((s) => s.count >= WEEKDAY_MIN_PER_DAY)
-  if (spanDays < WEEKDAY_MIN_SPAN_DAYS || !enough) {
-    return {
-      direction: "insufficient",
-      stat: null,
-      baselineSys,
-      baselineDia,
-      totalCount: allSys.length,
-      spanDays,
-      minPerDay: WEEKDAY_MIN_PER_DAY,
-      minSpanDays: WEEKDAY_MIN_SPAN_DAYS,
-      stats,
-    }
+export type HalfStats = {
+  count: number
+  avgSys: number | null
+  avgDia: number | null
+}
+
+export function halvesStats(readings: TrendReading[]): { first: HalfStats; second: HalfStats } {
+  const valid = readings
+    .map((r) => ({ ts: new Date(r.measured_at).getTime(), r }))
+    .filter((x) => !Number.isNaN(x.ts))
+    .sort((a, b) => a.ts - b.ts)
+
+  const pack = (items: typeof valid): HalfStats => ({
+    count: items.length,
+    avgSys: mean(items.map((x) => x.r.systolic)),
+    avgDia: mean(items.map((x) => x.r.diastolic)),
+  })
+
+  if (valid.length === 0) {
+    return { first: pack([]), second: pack([]) }
   }
 
-  const valid = stats.filter((s) => s.count >= WEEKDAY_MIN_PER_DAY && s.avgSys != null)
-  const highest = valid.reduce((a, b) => (a.avgSys! > b.avgSys! ? a : b))
-  const lowest = valid.reduce((a, b) => (a.avgSys! < b.avgSys! ? a : b))
-
-  if (baselineSys != null && highest.avgSys != null && highest.avgSys >= baselineSys + WEEKDAY_MIN_DIFF_SYS) {
-    return { direction: "high", stat: highest, baselineSys, baselineDia, totalCount: allSys.length, spanDays, minPerDay: WEEKDAY_MIN_PER_DAY, minSpanDays: WEEKDAY_MIN_SPAN_DAYS, stats }
+  // split at the median timestamp so both halves hold ~the same number of readings
+  const mid = valid[Math.floor(valid.length / 2)].ts
+  return {
+    first: pack(valid.filter((x) => x.ts < mid)),
+    second: pack(valid.filter((x) => x.ts >= mid)),
   }
-  if (baselineSys != null && lowest.avgSys != null && lowest.avgSys <= baselineSys - WEEKDAY_MIN_DIFF_SYS) {
-    return { direction: "low", stat: lowest, baselineSys, baselineDia, totalCount: allSys.length, spanDays, minPerDay: WEEKDAY_MIN_PER_DAY, minSpanDays: WEEKDAY_MIN_SPAN_DAYS, stats }
-  }
-  return { direction: "none", stat: null, baselineSys, baselineDia, totalCount: allSys.length, spanDays, minPerDay: WEEKDAY_MIN_PER_DAY, minSpanDays: WEEKDAY_MIN_SPAN_DAYS, stats }
 }
