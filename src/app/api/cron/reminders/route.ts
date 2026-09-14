@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
 import { timingSafeEqual } from "crypto"
 import { db } from "@/db/client"
-import { reminderSettings, users } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { reminderSettings, reminderSends, users } from "@/db/schema"
+import { and, eq, lt } from "drizzle-orm"
 import nodemailer from "nodemailer"
 import { createTransporter } from "@/lib/mail"
+import { currentSlot } from "@/lib/reminder-slot"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -59,19 +60,14 @@ export async function GET(request: Request) {
     .innerJoin(users, eq(reminderSettings.userId, users.id))
     .where(eq(reminderSettings.emailEnabled, true))
 
-  const matching = settings.filter((s) => {
+  const matching = settings.flatMap((s) => {
     try {
       const times: string[] = JSON.parse(s.times)
       // ponytail: use user's timezone, not server UTC
-      const currentTime = new Intl.DateTimeFormat("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: s.timezone || "UTC",
-      }).format(new Date())
-      return times.includes(currentTime)
+      const slot = currentSlot(times, s.timezone)
+      return slot ? [{ ...s, slot }] : []
     } catch {
-      return false
+      return []
     }
   })
 
@@ -80,6 +76,12 @@ export async function GET(request: Request) {
       { sent: 0, message: "No reminders for this time" },
       { headers: { "Cache-Control": "no-store" } },
     )
+  }
+
+  try {
+    await db.delete(reminderSends).where(lt(reminderSends.sentAt, new Date(Date.now() - 40 * 864e5).toISOString()))
+  } catch {
+    // cleanup is best-effort
   }
 
   const REMINDER_FROM = process.env.REMINDER_FROM
@@ -105,7 +107,23 @@ export async function GET(request: Request) {
     const batchResults = await Promise.all(
       batch.map(async (s) => {
         if (!s.email) return null
+
+        // claim the slot first: prevents duplicate sends if the cron runs twice
+        const claimed = await db
+          .insert(reminderSends)
+          .values({ userId: s.userId, slot: s.slot })
+          .onConflictDoNothing()
+          .returning({ userId: reminderSends.userId })
+        if (claimed.length === 0) return { email: s.email, status: "already-sent" }
+
         const ok = await sendReminder(s.email, REMINDER_FROM, transporter)
+        if (!ok) {
+          // release the slot so the next run can retry
+          await db
+            .delete(reminderSends)
+            .where(and(eq(reminderSends.userId, s.userId), eq(reminderSends.slot, s.slot)))
+            .catch(() => {})
+        }
         return { email: s.email, status: ok ? "sent" : "failed" }
       })
     )

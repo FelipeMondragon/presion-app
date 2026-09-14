@@ -3,7 +3,9 @@ import {
   trendStats,
   diffVsPrevious,
   dailyTrendPoints,
-  weekdayPattern,
+  timeOfDayStats,
+  targetRateStats,
+  halvesStats,
   type TrendReading,
 } from "../src/lib/bp-trends"
 
@@ -11,7 +13,6 @@ const noon = (y: number, m: number, d: number) =>
   new Date(y, m - 1, d, 12).toISOString()
 
 const TZ = "America/Mexico_City"
-const LOC = "es-MX"
 function r(iso: string, systolic: number, diastolic = 80): TrendReading {
   return { measured_at: iso, systolic, diastolic }
 }
@@ -137,75 +138,84 @@ function r(iso: string, systolic: number, diastolic = 80): TrendReading {
   strictEqual(dailyTrendPoints([], 30, now).every((p) => p.count === 0), true)
 }
 
-// Weekday grouping: 2024 Mondays are Jan 1, 8, 15, 22, 29 (12:00 UTC -> Monday in MX)
-{
-  const mondays = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z", "2024-01-22T12:00:00.000Z"].map((iso) => r(iso, 140, 90))
-  const tuesdays = ["2024-01-02T12:00:00.000Z", "2024-01-09T12:00:00.000Z", "2024-01-16T12:00:00.000Z", "2024-01-23T12:00:00.000Z"].map((iso) => r(iso, 120))
-  const pattern = weekdayPattern([...mondays, ...tuesdays], TZ, LOC)
-  strictEqual(pattern.stats[1].count, 4) // Monday
-  strictEqual(pattern.stats[1].avgSys, 140)
-  strictEqual(pattern.stats[2].count, 4) // Tuesday
-  strictEqual(pattern.stats[2].avgSys, 120)
-}
-
-// Weekday boundary: a reading just after midnight local lands on the next day
+// Time of day: morning = before 12:00 local (Mexico City is UTC-6 in January)
 {
   const readings = [
-    r("2024-01-01T00:30:00.000Z", 120), // 2023-12-31 18:30 in MX -> Sunday
-    r("2024-01-01T07:00:00.000Z", 130), // 2024-01-01 01:00 in MX -> Monday
+    r("2024-01-10T14:00:00.000Z", 130), // 08:00 local
+    r("2024-01-10T15:00:00.000Z", 134, 82), // 09:00 local
+    r("2024-01-10T17:59:00.000Z", 126, 78), // 11:59 local
+    r("2024-01-10T18:00:00.000Z", 120, 76), // 12:00 local
+    r("2024-01-11T02:00:00.000Z", 118, 74), // 20:00 local
   ]
-  const pattern = weekdayPattern(readings, TZ, LOC)
-  strictEqual(pattern.stats[0].count, 1) // Sunday
-  strictEqual(pattern.stats[1].count, 1) // Monday
+  const { morning, rest } = timeOfDayStats(readings, TZ)
+  strictEqual(morning.count, 3)
+  strictEqual(morning.avgSys, 130)
+  strictEqual(rest.count, 2)
+  strictEqual(rest.avgSys, 119)
+  strictEqual(rest.avgDia, 75)
 }
 
-// Not enough readings per day -> no pattern
+// Time of day respects the user's timezone: 17:59Z is 11:59 in Mexico City
 {
-  const readings = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z"].map((iso) => r(iso, 140))
-  const pattern = weekdayPattern(readings, TZ, LOC)
-  strictEqual(pattern.direction, "insufficient")
+  const readings = [r("2024-01-10T17:59:00.000Z", 120)]
+  strictEqual(timeOfDayStats(readings, TZ).morning.count, 1)
+  strictEqual(timeOfDayStats(readings, "UTC").rest.count, 1)
 }
 
-// Data spans less than 28 days -> insufficient even with 4 readings per weekday
+// In-range rate: strict <130/80, current vs previous window
 {
-  const readings = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z", "2024-01-22T12:00:00.000Z"].map((iso) => r(iso, 140))
-  strictEqual(weekdayPattern(readings, TZ, LOC).direction, "insufficient")
+  const now = new Date(2024, 0, 31, 12)
+  const readings: TrendReading[] = [
+    { measured_at: noon(2024, 1, 5), systolic: 120, diastolic: 79 }, // current, in
+    { measured_at: noon(2024, 1, 10), systolic: 129, diastolic: 79 }, // current, in
+    { measured_at: noon(2024, 1, 15), systolic: 130, diastolic: 79 }, // current, out (sys must be < 130)
+    { measured_at: noon(2024, 1, 20), systolic: 120, diastolic: 80 }, // current, out (dia must be < 80)
+    { measured_at: noon(2023, 12, 20), systolic: 150, diastolic: 95 }, // previous, out
+  ]
+  const { current, previous } = targetRateStats(readings, 30, now)
+  strictEqual(current.count, 4)
+  strictEqual(current.inRange, 2)
+  strictEqual(current.pct, 50)
+  strictEqual(previous.count, 1)
+  strictEqual(previous.pct, 0)
 }
 
-// Small differences -> no clear pattern
+// No readings -> null rate
 {
-  const readings: TrendReading[] = []
-  for (let w = 0; w < 4; w++) {
-    for (let d = 0; d < 7; d++) {
-      // Jan 8 2024 is a Monday; one reading per weekday for 4 weeks
-      const dt = new Date(Date.UTC(2024, 0, 8 + d + w * 7, 12))
-      readings.push(r(dt.toISOString(), 120))
-    }
-  }
-  strictEqual(weekdayPattern(readings, TZ, LOC).direction, "none")
+  const { current, previous } = targetRateStats([], 30, new Date(2024, 0, 31, 12))
+  strictEqual(current.count, 0)
+  strictEqual(current.pct, null)
+  strictEqual(previous.pct, null)
 }
 
-// A clearly higher weekday -> "high" pattern with that day
+// Halves split at the median timestamp, evenly by count
 {
-  const mondays = ["2024-01-01T12:00:00.000Z", "2024-01-08T12:00:00.000Z", "2024-01-15T12:00:00.000Z", "2024-01-22T12:00:00.000Z", "2024-01-29T12:00:00.000Z"].map((iso) => r(iso, 140, 90))
-  const others: TrendReading[] = []
-  for (let w = 0; w < 4; w++) {
-    for (let d = 1; d <= 6; d++) {
-      // Tuesday..Sunday: Jan 9 + d + w*7 (Jan 9 2024 is a Tuesday)
-      const dt = new Date(Date.UTC(2024, 0, 9 + d + w * 7, 12))
-      others.push(r(dt.toISOString(), 120))
-    }
-  }
-  const pattern = weekdayPattern([...mondays, ...others], TZ, LOC)
-  strictEqual(pattern.direction, "high")
-  strictEqual(pattern.stat?.index, 1) // Monday
+  const readings = [
+    r("2024-01-01T12:00:00.000Z", 100),
+    r("2024-01-02T12:00:00.000Z", 110),
+    r("2024-01-03T12:00:00.000Z", 120),
+    r("2024-01-04T12:00:00.000Z", 130),
+  ]
+  const { first, second } = halvesStats(readings)
+  strictEqual(first.count, 2)
+  strictEqual(first.avgSys, 105)
+  strictEqual(second.count, 2)
+  strictEqual(second.avgSys, 125)
 }
 
-// Empty history does not break the pattern helper
+// Halves do not depend on input order; empty input is safe
 {
-  const pattern = weekdayPattern([], TZ, LOC)
-  strictEqual(pattern.direction, "insufficient")
-  strictEqual(pattern.stats.length, 7)
+  const shuffled = [
+    r("2024-01-04T12:00:00.000Z", 130),
+    r("2024-01-01T12:00:00.000Z", 100),
+    r("2024-01-03T12:00:00.000Z", 120),
+    r("2024-01-02T12:00:00.000Z", 110),
+  ]
+  strictEqual(halvesStats(shuffled).first.avgSys, 105)
+  const empty = halvesStats([])
+  strictEqual(empty.first.count, 0)
+  strictEqual(empty.first.avgSys, null)
+  strictEqual(empty.second.count, 0)
 }
 
 console.log("✅ trends.test.ts — all assertions passed")

@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`admin-measurements:${ip}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`admin-measurements:${ip}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`users-list:${ip}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`users-list:${ip}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`users:${ip}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`users:${ip}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
@@ -76,6 +76,16 @@ export async function POST(request: Request) {
 
   if (existing) {
     return NextResponse.json({ error: "El correo ya está registrado" }, { status: 400 })
+  }
+
+  const [existingUsername] = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1)
+
+  if (existingUsername) {
+    return NextResponse.json({ error: "El nombre de usuario ya está en uso" }, { status: 400 })
   }
 
   const passwordHash = await hash(password, 12)

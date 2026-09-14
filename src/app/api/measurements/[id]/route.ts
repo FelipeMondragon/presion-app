@@ -16,7 +16,7 @@ export async function DELETE(
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`delete-measurement:${ip}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`delete-measurement:${ip}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

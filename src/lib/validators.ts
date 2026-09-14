@@ -1,32 +1,41 @@
 import { z } from "zod"
 
-export const measurementSchema = z.object({
-  systolic: z.coerce
-    .number()
-    .int()
-    .min(50, "Debe ser mayor a 50")
-    .max(300, "Debe ser menor a 300"),
-  diastolic: z.coerce
-    .number()
-    .int()
-    .min(30, "Debe ser mayor a 30")
-    .max(200, "Debe ser menor a 200"),
-  pulse: z.coerce
-    .number()
-    .int()
-    .min(30, "Debe ser mayor a 30")
-    .max(250, "Debe ser menor a 250")
-    .optional()
-    .nullable()
-    .or(z.literal("").transform(() => null)),
-  arm: z.enum(["left", "right"]).optional().default("left"),
-  position: z
-    .enum(["sitting", "lying", "standing"])
-    .optional()
-    .default("sitting"),
-  notes: z.string().max(500).optional().default(""),
-  measured_at: z.string().optional(),
-})
+export const measurementSchema = z
+  .object({
+    systolic: z.coerce
+      .number()
+      .int()
+      .min(50, "Debe ser mayor a 50")
+      .max(300, "Debe ser menor a 300"),
+    diastolic: z.coerce
+      .number()
+      .int()
+      .min(30, "Debe ser mayor a 30")
+      .max(200, "Debe ser menor a 200"),
+    pulse: z.coerce
+      .number()
+      .int()
+      .min(30, "Debe ser mayor a 30")
+      .max(250, "Debe ser menor a 250")
+      .optional()
+      .nullable()
+      .or(z.literal("").transform(() => null)),
+    arm: z.enum(["left", "right"]).optional().default("left"),
+    position: z
+      .enum(["sitting", "lying", "standing"])
+      .optional()
+      .default("sitting"),
+    notes: z.string().max(500).optional().default(""),
+    measured_at: z
+      .string()
+      .refine((s) => !Number.isNaN(Date.parse(s)), "Fecha inválida")
+      .transform((s) => new Date(s).toISOString())
+      .optional(),
+  })
+  .refine((data) => data.systolic > data.diastolic, {
+    message: "La sistólica debe ser mayor que la diastólica",
+    path: ["diastolic"],
+  })
 
 export const loginSchema = z.object({
   email: z.string().email("Correo inválido"),

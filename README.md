@@ -10,7 +10,7 @@ Aplicación web bilingüe (español e inglés) para registrar, consultar y compa
 - Registro manual de mediciones: sistólica, diastólica, pulso, brazo, posición y notas.
 - Clasificación automática de cada lectura (normal, elevada, hipertensión grado 1/2, crisis hipertensiva).
 - Dashboard con última medición, promedios semanales, espectro de clasificación y tendencias de los últimos 7 días.
-- Historial con filtros, búsqueda, ordenamiento, tablas y gráficos.
+- Historial con filtros, búsqueda, ordenamiento, tablas y gráficos, con análisis de tendencias (evolución vs período anterior, mañana vs tarde/noche y porcentaje de lecturas en rango < 130/80).
 - Exportación de reportes a PDF y Excel, con estadísticas y distribución por clasificación.
 - Envío de reportes por email (para compartirlos con un médico).
 - Recordatorios de medición por navegador y por correo (horarios configurables).
@@ -73,7 +73,7 @@ El proyecto usa Drizzle con Turso. La app y `drizzle-kit` leen `.env.local`; el 
 # Generar una migración tras cambiar el esquema
 npm run db:generate
 
-# Aplicar migraciones pendientes
+# Aplicar migraciones pendientes (script propio; `drizzle-kit migrate` se cuelga en Windows/Node 24)
 npm run db:migrate
 
 # (Alternativa) Sincronizar el esquema directamente contra la base
@@ -106,6 +106,15 @@ Crea dos cuentas y mediciones de prueba:
 
 En producción el seed exige la variable `ADMIN_PASSWORD` y no inserta el usuario de prueba. **Nunca uses estas credenciales en un entorno real.**
 
+Datos dummy para probar la interfaz con volumen (solo desarrollo):
+
+```bash
+npm run db:seed:dummy                              # 8 usuarios, ~1000 mediciones
+npm run db:seed:dummy -- --users=12 --count=2000
+```
+
+Crea cuentas `dummy1@example.com` … con contraseña `test1234` y mediciones repartidas en ~6 meses.
+
 ## Scripts disponibles
 
 | Script | Descripción |
@@ -114,11 +123,12 @@ En producción el seed exige la variable `ADMIN_PASSWORD` y no inserta el usuari
 | `npm run build` | Compila la aplicación de producción. |
 | `npm run start` | Sirve la build de producción. |
 | `npm run lint` | Lint de ESLint. |
-| `npm run test` | Prueba del clasificador de presión. |
+| `npm run test` | Ejecuta la suite: clasificador, validación, tendencias, PDF, slots de recordatorio, rate limiter y ejes de gráficos. |
 | `npm run db:generate` | Genera migraciones de Drizzle. |
-| `npm run db:migrate` | Aplica migraciones. |
+| `npm run db:migrate` | Aplica migraciones (script `tsx` propio). |
 | `npm run db:push` | Sincroniza el esquema directamente. |
 | `npm run db:seed` | Inserta datos iniciales. |
+| `npm run db:seed:dummy` | Genera usuarios y mediciones dummy (solo desarrollo; admite `--users` y `--count`). |
 | `npm run db:studio` | Abre Drizzle Studio. |
 
 ## Rutas principales
@@ -154,7 +164,7 @@ La lógica está en `src/lib/bp-classifier.ts` y los rangos en `src/lib/bp-range
 
 ## Pruebas
 
-Las pruebas cubren el clasificador de presión:
+La suite cubre clasificación, validación de mediciones, tendencias, generación del reporte PDF, cálculo de slots de recordatorios, rate limiter y formato de ejes de las gráficas:
 
 ```bash
 npm run test

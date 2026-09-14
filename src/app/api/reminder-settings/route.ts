@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   const ip = getClientIp(request)
-  if (!checkRateLimit(`reminder-settings:${ip}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`reminder-settings:${ip}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
@@ -54,8 +54,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const ip = getClientIp(request)
-  if (!checkRateLimit(`reminder:${session.user.id}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`reminder:${session.user.id}`, 30, 60_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

@@ -6,7 +6,7 @@ const csp =
     : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.gravatar.com; font-src 'self' data:; connect-src 'self' https://*.turso.tech; frame-ancestors 'self';"
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["192.168.100.12", "localhost", "127.0.0.1"],
+  allowedDevOrigins: ["192.168.100.*", "localhost", "127.0.0.1"],
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

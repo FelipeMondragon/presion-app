@@ -9,7 +9,7 @@ import { SECURITY_QUESTIONS } from "@/lib/security-questions"
 
 export async function POST(request: Request) {
   const ip = getClientIp(request)
-  if (!checkRateLimit(`forgot-pw:${ip}`, 3, 600_000)) {
+  if (!(await checkRateLimit(`forgot-pw:${ip}`, 3, 600_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

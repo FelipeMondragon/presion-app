@@ -3,7 +3,7 @@ import { hash, compare } from "bcryptjs"
 import { db } from "@/db/client"
 import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { resetApiSchema, resetPasswordSchema, verifyAnswerSchema } from "@/lib/validators"
+import { resetApiSchema, verifyAnswerSchema } from "@/lib/validators"
 import { checkRateLimit } from "@/lib/rate-limiter"
 import { getClientIp } from "@/lib/ip"
 
@@ -11,7 +11,7 @@ const GENERIC_ERROR = "Correo o respuesta inválidos"
 
 export async function POST(request: Request) {
   const ip = getClientIp(request)
-  if (!checkRateLimit(`reset-pw:${ip}`, 5, 600_000)) {
+  if (!(await checkRateLimit(`reset-pw:${ip}`, 5, 600_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 

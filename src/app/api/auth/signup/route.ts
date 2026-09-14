@@ -10,7 +10,7 @@ import { getClientIp } from "@/lib/ip"
 
 export async function POST(request: Request) {
   const ip = getClientIp(request)
-  if (!checkRateLimit(`signup:${ip}`, 3, 600_000)) {
+  if (!(await checkRateLimit(`signup:${ip}`, 3, 600_000))) {
     return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429 })
   }
 
