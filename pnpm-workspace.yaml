@@ -1,0 +1,7 @@
+# Configuración de pnpm (pnpm 12: los builds se aprueban aquí)
+# esbuild y unrs-resolver: scripts de build legítimos y necesarios (drizzle-kit, eslint-config-next)
+# core-js: su postinstall solo imprime un banner de donación — denegado
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  core-js: false
